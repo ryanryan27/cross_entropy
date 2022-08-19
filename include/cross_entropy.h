@@ -1,6 +1,4 @@
-#include <string>
-
-int read_edges(int**&, std::string, int);
+int read_edges(int**&, char*, int);
 void make_graph(int&, int*&, int**&, int, int**);
 void make_domset(int*&, int, int*, int**, double*);
 double calculate_score(int, int*);

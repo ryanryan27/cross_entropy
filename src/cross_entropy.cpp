@@ -11,13 +11,13 @@ static const double e = 2.71828;
 int main(int argc, char* argv[]){
 
     //Graph Variables
-    std::string filename;
+    char* filename;
     int N;
     int max_degree;
 
     int* degrees;
     int** neighbours;
-    int** edges; //buffer for reading in edges.
+    int** edges;
 
     //Parameters
     int n = 50;
@@ -137,8 +137,8 @@ int main(int argc, char* argv[]){
 }
 
 
-int read_edges(int**& edges, std::string filename, int label_offset){
-    std::ifstream file(filename.c_str());
+int read_edges(int**& edges, char* filename, int label_offset){
+    std::ifstream file(filename);
 
     if(!file){
         std::cout << "File does not exist" << std::endl;
