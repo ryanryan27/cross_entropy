@@ -1,6 +1,4 @@
-#include <iostream>
-#include <fstream>
-#include <string>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include "cross_entropy.h"
@@ -42,41 +40,43 @@ int main(int argc, char* argv[]){
 
     for (int i = 0; i < argc; i++)
     {
-        std::string s(argv[i]);
-        if(s=="-f"){
+        char* s = argv[i];
+        
+        if(!strcmp(s, "-f")){
             filename = argv[++i];
             has_file = 1;
 
             if(i + 1 < argc && argv[i+1][0] != '-'){
                 label_offset = atoi(argv[++i]);
             }
-        } else if(s == "-n"){
+        } else if(!strcmp(s, "-n")){
             n = atoi(argv[++i]);
-        } else if(s == "-m"){
+        } else if(!strcmp(s, "-m")){
             m = atoi(argv[++i]);
-        } else if(s == "-r"){
+        } else if(!strcmp(s, "-r")){
             r = atoi(argv[++i]);
-        } else if(s == "-R"){
+        } else if(!strcmp(s, "-R")){
             rho = atof(argv[++i]);
-        } else if(s == "-a"){
+        } else if(!strcmp(s, "-a")){
             alpha = atof(argv[++i]);
         }
     }
     
     if(!has_file){
-        std::cout << "Please provide a edge list file with -f \"filename\"" << std::endl;
+        fprintf(stdout, "Please provide a edge list file with -f \"filename\"");
         return 1;
     }
 
     int edge_count = read_edges(edges, filename, label_offset);
 
+
     make_graph(N, degrees, neighbours, edge_count, edges);
     
+    
 
-
-    dombest = new int[N];
-    P = new double[N];
-    Pstar = new double[N];
+    dombest = (int*) malloc(N*sizeof(int));//new int[N];
+    P = (double*) malloc(N*sizeof(double));//new double[N];
+    Pstar = (double*) malloc(N*sizeof(double));//new double[N];
     for (int i = 0;i < N;i++)
     {
         dombest[i] = 1;
@@ -84,11 +84,12 @@ int main(int argc, char* argv[]){
         Pstar[i] = 0;
     }
 
+    domsets = (int**) malloc(n*sizeof(int*));//new int*[n];
+    L =  (double*) malloc(n*sizeof(double));//new double[n];
+
     int t = 0;
     while(true){
 
-        domsets = new int*[n];
-        L =  new double[n];
         for (int i = 0; i < n; i++)
         {
             make_domset(domsets[i], N, degrees, neighbours, P);
@@ -130,8 +131,32 @@ int main(int argc, char* argv[]){
         sum += dombest[i];
     }
             
-    std::cout << "Best is " << sum << " guards" << std::endl;
 
+    fprintf(stdout, "Best is %d guards", sum);
+
+    for (int i = 0; i < edge_count; i++)
+    {
+        free(edges[i]);
+    }
+    for(int i = 0; i < N; i++)
+    {
+        free(neighbours[i]);
+    }
+    for (int i = 0; i < n; i++)
+    {
+        free(domsets[i]);
+    }
+
+    free(dombest);
+    free(P);
+    free(Pstar);
+    free(L);
+    free(degrees);
+    free(edges);
+    free(neighbours);
+    free(domsets);
+    
+    
 
     return 0;
 }
@@ -145,33 +170,42 @@ int main(int argc, char* argv[]){
  * @return -1 if no file, number of edges otherwise.
  */
 int read_edges(int**& edges, char* filename, int label_offset){
-    std::ifstream file(filename);
+    //std::ifstream file(filename);
+    FILE* file = fopen(filename, "r");
 
     if(!file){
-        std::cout << "File does not exist" << std::endl;
+        fprintf(stdout, "File does not exist\n");
         return -1;
     }
 
-    std::string line;
 
-    int** edge_buffer = new int*[10000];
+    int** edge_buffer = (int**) malloc(10000*sizeof(int*));//new int*[10000];
 
     int count = 0;
-    while (std::getline(file, line)){
-        int space = line.find(" ");
-        edge_buffer[count] = new int[2];
-        edge_buffer[count][0] = atoi(line.substr(0,space).c_str()) - label_offset;
-        edge_buffer[count++][1] = atoi(line.substr(space+1,line.length()-1).c_str()) - label_offset;
+
+    while(true){
+        int a = 0;
+        int b = 0;
+        int check = fscanf(file, " %d %d ", &a, &b);
+        if(check == EOF) break;
+
+        
+        edge_buffer[count] = (int*) malloc(2*sizeof(int));//new int[2];
+        edge_buffer[count][0] = a - label_offset;
+        edge_buffer[count++][1] = b - label_offset;
+        
     }
 
-    edges = new int*[count];
+    edges = (int**) malloc(count*sizeof(int*));//new int*[count];
     for (int i = 0; i < count; i++)
     {
-        edges[i] = new int[2];
+        edges[i] = (int*) malloc(2*sizeof(int));//new int[2];
         edges[i][0] = edge_buffer[i][0];
         edges[i][1] = edge_buffer[i][1];
+        free(edge_buffer[i]);
     }
     
+    free(edge_buffer);
 
     
     return count;
@@ -200,10 +234,9 @@ void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** 
     }
     N++;
 
-    degrees = new int[N];
+    degrees = (int*) malloc(N*sizeof(int));//new int[N];
     memset(degrees, 0, N*sizeof(int));
     
-
     for (int i = 0; i < edge_count; i++)
     {
         int a = edges[i][0];
@@ -213,13 +246,12 @@ void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** 
         degrees[b]++;
     }
 
-
     
 
-    neighbours = new int*[N];
+    neighbours = (int**) malloc(N*sizeof(int*));//new int*[N];
     for (int i = 0; i < N; i++)
     {
-        neighbours[i] = new int[degrees[i]];
+        neighbours[i] = (int*) malloc(degrees[i]*sizeof(int));//new int[degrees[i]];
     }
     
     int counter[N] = {0};
@@ -247,11 +279,11 @@ void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** 
  * @param P probabilities that each vertex will be selected for the domset
  */
 void make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P){
-    domset = new int[N];
+    domset = (int*) malloc(N*sizeof(int));//new int[N];
     memset(domset, 0, N*sizeof(int));
 
     double Ptemp[N];
-    std::copy(P, P+N, Ptemp);
+    memcpy(Ptemp, P, sizeof(*P)*N);
 
     while(!dominates(domset, N, degrees, neighbours)){
         int ind = weight_rand(N, Ptemp);
