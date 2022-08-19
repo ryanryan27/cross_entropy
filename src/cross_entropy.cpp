@@ -136,7 +136,14 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-
+/**
+ * @brief Reads a list of edges from a given file. 
+ * 
+ * @param edges will contain list of edges
+ * @param filename name of file to open
+ * @param label_offset either 0 or 1 depending on indexing of vertices
+ * @return -1 if no file, number of edges otherwise.
+ */
 int read_edges(int**& edges, char* filename, int label_offset){
     std::ifstream file(filename);
 
@@ -171,6 +178,15 @@ int read_edges(int**& edges, char* filename, int label_offset){
 
 }
 
+/**
+ * @brief Creates a list of neighbours given a set of edges
+ * 
+ * @param N will be number of vertices in the graph
+ * @param degrees will belist of degrees for each vertex
+ * @param neighbours will be list of neighbours for each vertex
+ * @param edge_count number of edges
+ * @param edges list of edges
+ */
 void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** edges){
     N = -1;
     for (int i = 0; i < edge_count; i++)
@@ -221,6 +237,15 @@ void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** 
     
 }
 
+/**
+ * @brief Fills a given array with a dominating set
+ * 
+ * @param domset array that will contain a domset
+ * @param N number of vertices for the domset
+ * @param degrees degree of each vertex in the graph to be dominated
+ * @param neighbours neighbours of each vertex in the graph to be dominated
+ * @param P probabilities that each vertex will be selected for the domset
+ */
 void make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P){
     domset = new int[N];
     memset(domset, 0, N*sizeof(int));
@@ -246,6 +271,13 @@ void make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P)
 
 }
 
+/**
+ * @brief Calculates the score of a given domset
+ * 
+ * @param N number of vertices in domset
+ * @param domset the domset
+ * @return the score of the domset, lower is better
+ */
 double calculate_score(int N, int* domset){
     int sum = 0;
 
@@ -257,6 +289,14 @@ double calculate_score(int N, int* domset){
     return sum;
 }
 
+/**
+ * @brief Sorts both L and domsets based on the values in L
+ * 
+ * @param L unsorted list of scores. will be sorted
+ * @param domsets unsorted list of dominating sets. will be sorted
+ * @param n number of domsets
+ * @param N number of vertices for the domsets
+ */
 void sort_domsets(double* &L, int** &domsets, int n, int N){
     double to_sort[n][2];
     for (int i = 0; i < n; i++)
@@ -292,6 +332,13 @@ void sort_domsets(double* &L, int** &domsets, int n, int N){
     
 }
 
+/**
+ * @brief Compares the elements of a list of pairs, based on the second value.
+ * 
+ * @param a first pair
+ * @param b second pair
+ * @return 0 if they are equal, -1 if a < b and 1 if a > b
+ */
 int compare_scores( const void* a, const void* b)
 {
     double L_a = ((double*)a)[1];
@@ -302,6 +349,16 @@ int compare_scores( const void* a, const void* b)
      else return 1;
 }
 
+/**
+ * @brief Calculates the updated probability distribution for a given index.
+ * 
+ * @param i index of the vertex
+ * @param m number of best domsets to choose from
+ * @param L list of scores for each domset, sorted low to high
+ * @param domsets list of domsets, sorted by score
+ * @param delta pre-calculated value for scoring
+ * @return the updated probability for the given index.
+ */
 double calculate_Pstar(int i, int m, double* L, int** domsets, double delta){
 
     double sum_num = 0;
@@ -319,6 +376,16 @@ double calculate_Pstar(int i, int m, double* L, int** domsets, double delta){
     return sum_num/sum_den;
 }
 
+/**
+ * @brief Determine if the given dominating set dominates the graph defined by the list of neighbours.
+ * 
+ * @param domset The dominating set to check
+ * @param N Number of vertices in the graph
+ * @param degrees list containing the degree of each vertex
+ * @param neighbours the neighbours of each vertex
+ * @return true if the given set is dominating
+ * @return false if the given set is not dominating
+ */
 bool dominates(int* domset, int N, int* degrees, int** neighbours){
     int dommed[N] = {0};
 
@@ -345,6 +412,13 @@ bool dominates(int* domset, int N, int* degrees, int** neighbours){
     return true;
 }
 
+/**
+ * @brief Given a distribution P of length N, randomly select an index based on the distribution.
+ * 
+ * @param N number of option in P
+ * @param P some distribution of values
+ * @return index of the selected value
+ */
 int weight_rand(int N, double* P){
 
     double sum = P[0];
