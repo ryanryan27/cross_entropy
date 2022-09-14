@@ -77,6 +77,8 @@ int main(int argc, char* argv[]){
                 dom_func = &secure_dominates;
             } else if(!strcmp(s, "t")){
                 dom_func = &total_dominates;
+            } else if(!strcmp(s, "2")){
+                dom_func = &two_dominates;
             }
 
         }
@@ -529,6 +531,42 @@ bool total_dominates(int* domset, int N, int* degrees, int** neighbours){
     for (int i = 0; i < N; i++)
     {
         if(!dommed[i]){
+            return false;
+        }
+    }
+    
+    
+    return true;
+}
+
+/**
+ * @brief Determine if the given dominating set two-dominates the graph defined by the list of neighbours.
+ * 
+ * @param domset The dominating set to check
+ * @param N Number of vertices in the graph
+ * @param degrees list containing the degree of each vertex
+ * @param neighbours the neighbours of each vertex
+ * @return true if the given set is two-dominating
+ * @return false if the given set is not two-dominating
+ */
+bool two_dominates(int* domset, int N, int* degrees, int** neighbours){
+    int dommed[N] = {0};
+
+    for (int i = 0; i < N; i++)
+    {
+        if(domset[i]){
+            dommed[i] = 2;
+            for (int j = 0; j < degrees[i]; j++)
+            {
+                dommed[neighbours[i][j]]++;
+            }
+            
+        }
+    }
+
+    for (int i = 0; i < N; i++)
+    {
+        if(dommed[i] < 2){
             return false;
         }
     }
