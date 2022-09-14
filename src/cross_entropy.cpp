@@ -84,6 +84,8 @@ int main(int argc, char* argv[]){
                 dom_func = &total_dominates;
             } else if(!strcmp(s, "2")){
                 dom_func = &two_dominates;
+            } else if(!strcmp(s, "c")){
+                dom_func = &connected_dominates;
             }
 
         }
@@ -625,6 +627,78 @@ bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
             }
         }
     }
+    return true;
+}
+
+/**
+ * @brief Determine if the given subset is connected dominating.
+ * 
+ * @param subset The subset to check
+ * @param N Number of vertices in the graph
+ * @param degrees list containing the degree of each vertex
+ * @param neighbours the neighbours of each vertex
+ * @return true if the given set is connected dominating
+ * @return false if the given set is not connected dominating
+ */
+bool connected_dominates(int* subset, int N, int* degrees, int** neighbours){
+    return dominates(subset, N, degrees, neighbours) && connected(subset, N, degrees, neighbours);
+}
+
+/**
+ * @brief Determine if the given subset is connected.
+ * 
+ * @param subset The subset to check
+ * @param N Number of vertices in the graph
+ * @param degrees list containing the degree of each vertex
+ * @param neighbours the neighbours of each vertex
+ * @return true if the given set is connected
+ * @return false if the given set is not connected
+ */
+bool connected(int* subset, int N, int* degrees, int** neighbours){
+    
+    int reached[N] = {0};
+
+    int start = -1;
+
+    for (int i = 0; i < N; i++)
+    {
+        if(subset[i]){
+            start = i;
+            reached[i] = 1;
+            break;
+        }
+    }
+    
+    if(start == -1) return false;
+
+    int queue[N] = {0};
+    int qsize = 1;
+    int qind = 0;
+    queue[0] = start;
+
+    while(qind < qsize){
+        int curr = queue[qind];
+        for (int i = 0; i < degrees[curr]; i++)
+        {
+            int nb = neighbours[curr][i];
+            if(subset[nb] && !reached[nb]){
+                reached[nb] = 1;
+                queue[qsize++] = nb;
+                
+            }
+        }
+        
+
+        qind++;
+    }
+
+    for (int i = 0; i < N; i++)
+    {
+        if(subset[i] && !reached[i]){
+            return false;
+        }
+    }
+
     return true;
 }
 
