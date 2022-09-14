@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 #include "cross_entropy.h"
 
 static const double e = 2.71828;
@@ -74,6 +75,8 @@ int main(int argc, char* argv[]){
                 dom_func = &dominates;
             } else if(!strcmp(s, "s")){
                 dom_func = &secure_dominates;
+            } else if(!strcmp(s, "t")){
+                dom_func = &total_dominates;
             }
 
         }
@@ -85,6 +88,7 @@ int main(int argc, char* argv[]){
     }
 
     srand(seed);
+    clock_t start = clock();
 
     int edge_count = read_edges(edges, filename, label_offset);
 
@@ -148,9 +152,16 @@ int main(int argc, char* argv[]){
     {
         sum += dombest[i];
     }
+
+    double total_time = (double)(clock() - start)/CLOCKS_PER_SEC;
             
 
     fprintf(stdout, "Best is %d guards\n", sum);
+    fprintf(stdout, "Time taken: %0.3f \n", total_time);
+
+    if(output_types > 0){
+        fprintf(stdout, "Dominating set: \n");
+    }
 
     for (int i  = 0; i < N; i++)
     {
@@ -491,6 +502,51 @@ bool dominates(int* domset, int N, int* degrees, int** neighbours){
     return true;
 }
 
+/**
+ * @brief Determine if the given dominating set totally dominates the graph defined by the list of neighbours.
+ * 
+ * @param domset The dominating set to check
+ * @param N Number of vertices in the graph
+ * @param degrees list containing the degree of each vertex
+ * @param neighbours the neighbours of each vertex
+ * @return true if the given set is total dominating
+ * @return false if the given set is not total dominating
+ */
+bool total_dominates(int* domset, int N, int* degrees, int** neighbours){
+    int dommed[N] = {0};
+
+    for (int i = 0; i < N; i++)
+    {
+        if(domset[i]){
+            for (int j = 0; j < degrees[i]; j++)
+            {
+                dommed[neighbours[i][j]] = 1;
+            }
+            
+        }
+    }
+
+    for (int i = 0; i < N; i++)
+    {
+        if(!dommed[i]){
+            return false;
+        }
+    }
+    
+    
+    return true;
+}
+
+/**
+ * @brief Determine if the given dominating set securely dominates the graph defined by the list of neighbours.
+ * 
+ * @param domset The dominating set to check
+ * @param N Number of vertices in the graph
+ * @param degrees list containing the degree of each vertex
+ * @param neighbours the neighbours of each vertex
+ * @return true if the given set is secure dominating
+ * @return false if the given set is not secure dominating
+ */
 bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
     if(!dominates(domset, N, degrees, neighbours)){
         return false;
