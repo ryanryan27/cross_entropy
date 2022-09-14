@@ -39,6 +39,9 @@ int main(int argc, char* argv[]){
     int label_offset = 1;
     int seed;
     int output_types = 0;
+
+    double timeout = -1;
+    bool out_of_time = false;
     
     bool has_file = 0;
 
@@ -67,6 +70,8 @@ int main(int argc, char* argv[]){
             alpha = atof(argv[++i]);
         } else if(!strcmp(s, "-s")){
             seed = atof(argv[++i]);
+        } else if(!strcmp(s, "-t")){
+            timeout = atof(argv[++i]);
         } else if(!strcmp(s, "-o")){
             output_types = atof(argv[++i]);
         } else if(!strcmp(s, "-d")){
@@ -131,6 +136,12 @@ int main(int argc, char* argv[]){
             break;
         }
 
+        if(timeout > 0 && ((double)(clock()-start)/CLOCKS_PER_SEC) > timeout){
+            out_of_time = true;
+            break;
+        }
+
+
         delta = -1*L[0]/log(rho);
 
         double psum = 0;
@@ -155,13 +166,12 @@ int main(int argc, char* argv[]){
         sum += dombest[i];
     }
 
-    double total_time = (double)(clock() - start)/CLOCKS_PER_SEC;
+    double total_time;
+    out_of_time ? total_time = -1 : total_time = (double)(clock() - start)/CLOCKS_PER_SEC;
             
-
-    fprintf(stdout, "Best is %d guards\n", sum);
-    fprintf(stdout, "Time taken: %0.3f \n", total_time);
-
     if(output_types > 0){
+        fprintf(stdout, "Best is %d guards\n", sum);
+        fprintf(stdout, "Time taken: %0.3f \n", total_time);
         fprintf(stdout, "Dominating set: \n");
     }
 
@@ -182,16 +192,15 @@ int main(int argc, char* argv[]){
     if(output_types == 3){
         for (int i  = 0; i < N; i++)
         {
-        
             fprintf(stdout, "%.2f ", P[i]);
-        
-        
         }
     
         fprintf(stdout, "\n");
     }
 
-
+    if(output_types == -1){
+        fprintf(stdout, "%d, %0.3f\n", sum, total_time);
+    }
 
 
     for (int i = 0; i < edge_count; i++)
