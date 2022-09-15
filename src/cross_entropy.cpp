@@ -45,6 +45,7 @@ int main(int argc, char* argv[]){
     
     bool has_file = 0;
 
+    char* dom_type =(char*)"d";
     bool (*dom_func)(int*, int, int*, int**) = &dominates;
 
     for (int i = 0; i < argc; i++)
@@ -75,16 +76,16 @@ int main(int argc, char* argv[]){
         } else if(!strcmp(s, "-o")){
             output_types = atof(argv[++i]);
         } else if(!strcmp(s, "-d")){
-            s = argv[++i];
-            if(!strcmp(s, "d")){
+            dom_type = argv[++i];
+            if(!strcmp(dom_type, "d")){
                 dom_func = &dominates;
-            } else if(!strcmp(s, "s")){
+            } else if(!strcmp(dom_type, "s")){
                 dom_func = &secure_dominates;
-            } else if(!strcmp(s, "t")){
+            } else if(!strcmp(dom_type, "t")){
                 dom_func = &total_dominates;
-            } else if(!strcmp(s, "2")){
+            } else if(!strcmp(dom_type, "2")){
                 dom_func = &two_dominates;
-            } else if(!strcmp(s, "c")){
+            } else if(!strcmp(dom_type, "c")){
                 dom_func = &connected_dominates;
             }
 
@@ -201,7 +202,7 @@ int main(int argc, char* argv[]){
     }
 
     if(output_types == -1){
-        fprintf(stdout, "%d, %0.3f\n", sum, total_time);
+        fprintf(stdout, "%s, %s, %d, %d, %d, %0.3f\n", filename, dom_type, N, edge_count, sum, total_time);
     }
 
 
