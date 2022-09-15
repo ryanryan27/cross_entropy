@@ -38,6 +38,7 @@ int main(int argc, char* argv[]){
 
     int label_offset = 1;
     int seed;
+    int iterations = 1;
     int output_types = 0;
 
     double timeout = -1;
@@ -75,6 +76,8 @@ int main(int argc, char* argv[]){
             timeout = atof(argv[++i]);
         } else if(!strcmp(s, "-o")){
             output_types = atof(argv[++i]);
+        } else if(!strcmp(s, "-i")){
+            iterations = atoi(argv[++i]);
         } else if(!strcmp(s, "-d")){
             dom_type = argv[++i];
             if(!strcmp(dom_type, "d")){
@@ -97,83 +100,114 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
-    srand(seed);
+    
     clock_t start = clock();
 
     int edge_count = read_edges(edges, filename, label_offset);
 
 
     make_graph(N, degrees, neighbours, edge_count, edges);
-    
-    
+
 
     dombest = (int*) malloc(N*sizeof(int));//new int[N];
     P = (double*) malloc(N*sizeof(double));//new double[N];
     Pstar = (double*) malloc(N*sizeof(double));//new double[N];
-    for (int i = 0;i < N;i++)
-    {
-        dombest[i] = 1;
-        P[i] = 1.0/double(N);
-        Pstar[i] = 0;
-    }
+
 
     domsets = (int**) malloc(n*sizeof(int*));//new int*[n];
     L =  (double*) malloc(n*sizeof(double));//new double[n];
-    int t = 0;
-    while(true){
 
-        for (int i = 0; i < n; i++)
-        {
-            make_domset(domsets[i], N, degrees, neighbours, P, (*dom_func));
-            L[i] = calculate_score(N, domsets[i]);
-        }
+    int results[iterations] = {0};
+    int best = N;
+    int best_domset[N] = {1};
 
+    bool timed_out = false;
+    int its_completed = 0;
 
-        sort_domsets(L, domsets, n, N);
-        
-        if(calculate_score(N, dombest) > L[0]){
-            dombest = domsets[0];
-        }
-
-        if(t > r){
-            break;
-        }
-
-        if(timeout > 0 && ((double)(clock()-start)/CLOCKS_PER_SEC) > timeout){
-            out_of_time = true;
-            break;
-        }
-
-
-        delta = -1*L[0]/log(rho);
-
-        double psum = 0;
-        for (int i = 0; i < N; i++)
-        {
-            Pstar[i] = calculate_Pstar(i, m, L, domsets, delta);
-            psum += Pstar[i];
-        }
-
-        for (int i = 0; i < N; i++)
-        {
-            P[i] = (1-alpha)*P[i] + alpha*(Pstar[i]/psum);
-        }
-
-        t++;
-    
-    }
-
-    int sum = 0;
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < iterations; i++)
     {
-        sum += dombest[i];
+        srand(seed + i);
+
+        for (int i = 0;i < N;i++)
+        {
+            dombest[i] = 1;
+            P[i] = 1.0/double(N);
+            Pstar[i] = 0;
+        }
+
+        int t = 0;
+
+        while(true){
+
+            for (int i = 0; i < n; i++)
+            {
+                make_domset(domsets[i], N, degrees, neighbours, P, (*dom_func));
+                L[i] = calculate_score(N, domsets[i]);
+            }
+
+
+            sort_domsets(L, domsets, n, N);
+            
+            if(calculate_score(N, dombest) > L[0]){
+                dombest = domsets[0];
+            }
+
+            if(t > r){
+                break;
+            }
+
+            if(timeout > 0 && ((double)(clock()-start)/CLOCKS_PER_SEC) > timeout){
+                timed_out = true;
+                break;
+            }
+
+
+            delta = -1*L[0]/log(rho);
+
+            double psum = 0;
+            for (int i = 0; i < N; i++)
+            {
+                Pstar[i] = calculate_Pstar(i, m, L, domsets, delta);
+                psum += Pstar[i];
+            }
+
+            for (int i = 0; i < N; i++)
+            {
+                P[i] = (1-alpha)*P[i] + alpha*(Pstar[i]/psum);
+            }
+
+            t++;
+        
+        }
+
+        int sum = 0;
+        for (int i = 0; i < N; i++)
+        {
+            sum += dombest[i];
+        }
+
+        results[i] = sum;
+
+        if(results[i] <best){
+            best = results[i];
+            for (int i = 0; i < N; i++)
+            {
+                best_domset[i] = dombest[i];
+            }
+            
+        }
+
+        its_completed = i+1;
+        if(timed_out){
+            
+            break;
+        }
     }
 
-    double total_time;
-    out_of_time ? total_time = -1 : total_time = (double)(clock() - start)/CLOCKS_PER_SEC;
+    double total_time  = (double)(clock() - start)/CLOCKS_PER_SEC;
             
     if(output_types > 0){
-        fprintf(stdout, "Best is %d guards\n", sum);
+        fprintf(stdout, "Best is %d guards\n", best);
         fprintf(stdout, "Time taken: %0.3f \n", total_time);
         fprintf(stdout, "Dominating set: \n");
     }
@@ -202,7 +236,7 @@ int main(int argc, char* argv[]){
     }
 
     if(output_types == -1){
-        fprintf(stdout, "%s, %s, %d, %d, %d, %0.3f\n", filename, dom_type, N, edge_count, sum, total_time);
+        fprintf(stdout, "%s, %s, %d, %d, %d, %d, %0.3f\n", filename, dom_type, N, edge_count, best, its_completed, total_time);
     }
 
 
@@ -227,8 +261,6 @@ int main(int argc, char* argv[]){
     free(edges);
     free(neighbours);
     free(domsets);
-    
-    
 
     return 0;
 }
