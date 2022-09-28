@@ -128,21 +128,21 @@ int main(int argc, char* argv[]){
     {
         srand(seed + i);
 
-        for (int i = 0;i < N;i++)
+        for (int j = 0;j < N;j++)
         {
-            dombest[i] = 1;
-            P[i] = 1.0/double(N);
-            Pstar[i] = 0;
+            dombest[j] = 1;
+            P[j] = 1.0/double(N);
+            Pstar[j] = 0;
         }
 
         int t = 0;
 
         while(true){
 
-            for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
             {
-                make_domset(domsets[i], N, degrees, neighbours, P, (*dom_func));
-                L[i] = calculate_score(N, domsets[i]);
+                make_domset(domsets[j], N, degrees, neighbours, P, (*dom_func));
+                L[j] = calculate_score(N, domsets[j]);
             }
 
 
@@ -165,15 +165,15 @@ int main(int argc, char* argv[]){
             delta = -1*L[0]/log(rho);
 
             double psum = 0;
-            for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++)
             {
-                Pstar[i] = calculate_Pstar(i, m, L, domsets, delta);
-                psum += Pstar[i];
+                Pstar[j] = calculate_Pstar(j, m, L, domsets, delta);
+                psum += Pstar[j];
             }
 
-            for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++)
             {
-                P[i] = (1-alpha)*P[i] + alpha*(Pstar[i]/psum);
+                P[j] = (1-alpha)*P[j] + alpha*(Pstar[j]/psum);
             }
 
             t++;
@@ -181,18 +181,18 @@ int main(int argc, char* argv[]){
         }
 
         int sum = 0;
-        for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
         {
-            sum += dombest[i];
+            sum += dombest[j];
         }
 
         results[i] = sum;
 
         if(results[i] <best){
             best = results[i];
-            for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++)
             {
-                best_domset[i] = dombest[i];
+                best_domset[j] = dombest[j];
             }
             
         }
@@ -215,11 +215,11 @@ int main(int argc, char* argv[]){
     for (int i  = 0; i < N; i++)
     {
         if(output_types == 1){
-            fprintf(stdout, "%d ", dombest[i]);
-        } else if(output_types == 2 && dombest[i]){
+            fprintf(stdout, "%d ", best_domset[i]);
+        } else if(output_types == 2 && best_domset[i]){
             fprintf(stdout, "%d ", i+label_offset);
         } else if(output_types == 3){
-            fprintf(stdout, "%d    ", dombest[i]);
+            fprintf(stdout, "%d    ", best_domset[i]);
         }
         
     }
@@ -396,13 +396,32 @@ void make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P,
     }
 
     for (int i = 0; i < N; i++){
-        if(domset[i]){
+
+        Ptemp[i] = 1.0 - P[i];
+
+
+        /*if(domset[i]){
             domset[i] = 0;
             if(!(*dom_func)(domset, N, degrees, neighbours)){
                 domset[i] = 1;
             }
-        }
+        }*/
     }
+
+
+    for (int i = 0; i < N; i++)
+    {
+        int ind = weight_rand(N, Ptemp);
+        Ptemp[ind] = 0;
+        if(domset[ind]){
+            domset[ind] = 0;
+            if(!(*dom_func)(domset, N, degrees, neighbours)){
+                domset[ind] = 1;
+            }
+        }
+
+    }
+    
 
 
 }
