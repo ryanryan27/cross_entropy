@@ -150,7 +150,9 @@ int main(int argc, char* argv[]){
             
             if(calculate_score(N, dombest) > L[0]){
                 dombest = domsets[0];
+                t = 0;
             }
+            //fprintf(stdout, "Best Domset this iteration: %d \n", (int)calculate_score(N, dombest));
 
             if(t > r){
                 break;
@@ -177,6 +179,21 @@ int main(int argc, char* argv[]){
             }
 
             t++;
+
+        /*for (int i  = 0; i < N; i++)
+        {
+            fprintf(stdout, "%.2f ", Pstar[i]);
+        }
+        for( int j = 0; j < m; j++){
+        for (int i = 0; i < N; i++){
+            if(domsets[j][i]){
+                fprintf(stdout, "%d ", i+label_offset);
+            }
+        }
+            fprintf(stdout, "\n");
+        }
+    
+        fprintf(stdout, "\n");*/
         
         }
 
