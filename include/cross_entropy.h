@@ -1,6 +1,6 @@
 int read_edges(int**&, char*, int);
 void make_graph(int&, int*&, int**&, int, int**);
-void make_domset(int*&, int, int*, int**, double*, bool (*)(int*,int,int*,int**));
+int make_domset(int*&, int, int*, int**, double*, bool (*)(int*,int,int*,int**));
 double calculate_score(int, int*);
 void sort_domsets(double*&, int**&, int, int);
 int compare_scores(const void*, const void*);

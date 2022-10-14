@@ -124,8 +124,12 @@ int main(int argc, char* argv[]){
     bool timed_out = false;
     int its_completed = 0;
 
+    int domset_possible = 1;
+
     for (int i = 0; i < iterations; i++)
     {
+        if (!domset_possible) break;
+        
         srand(seed + i);
 
         for (int j = 0;j < N;j++)
@@ -139,12 +143,18 @@ int main(int argc, char* argv[]){
 
         while(true){
 
+            
+
             for (int j = 0; j < n; j++)
             {
-                make_domset(domsets[j], N, degrees, neighbours, P, (*dom_func));
+                domset_possible = make_domset(domsets[j], N, degrees, neighbours, P, (*dom_func));
+                
+                if (!domset_possible) break;
+
                 L[j] = calculate_score(N, domsets[j]);
             }
 
+            if (!domset_possible) break;
 
             sort_domsets(L, domsets, n, N);
             
@@ -222,38 +232,41 @@ int main(int argc, char* argv[]){
     }
 
     double total_time  = (double)(clock() - start)/CLOCKS_PER_SEC;
-            
-    if(output_types > 0){
-        fprintf(stdout, "Best is %d guards\n", best);
-        fprintf(stdout, "Time taken: %0.3f \n", total_time);
-        fprintf(stdout, "Dominating set: \n");
-    }
-
-    for (int i  = 0; i < N; i++)
-    {
-        if(output_types == 1){
-            fprintf(stdout, "%d ", best_domset[i]);
-        } else if(output_types == 2 && best_domset[i]){
-            fprintf(stdout, "%d ", i+label_offset);
-        } else if(output_types == 3){
-            fprintf(stdout, "%d    ", best_domset[i]);
+    if(domset_possible){
+        if(output_types > 0){
+            fprintf(stdout, "Best is %d guards\n", best);
+            fprintf(stdout, "Time taken: %0.3f \n", total_time);
+            fprintf(stdout, "Dominating set: \n");
         }
-        
-    }
-    if(output_types > 0){
-        fprintf(stdout, "\n");
-    }
-    if(output_types == 3){
+
         for (int i  = 0; i < N; i++)
         {
-            fprintf(stdout, "%.2f ", P[i]);
+            if(output_types == 1){
+                fprintf(stdout, "%d ", best_domset[i]);
+            } else if(output_types == 2 && best_domset[i]){
+                fprintf(stdout, "%d ", i+label_offset);
+            } else if(output_types == 3){
+                fprintf(stdout, "%d    ", best_domset[i]);
+            }
+            
         }
-    
-        fprintf(stdout, "\n");
-    }
+        if(output_types > 0){
+            fprintf(stdout, "\n");
+        }
+        if(output_types == 3){
+            for (int i  = 0; i < N; i++)
+            {
+                fprintf(stdout, "%.2f ", P[i]);
+            }
+        
+            fprintf(stdout, "\n");
+        }
 
-    if(output_types == -1){
-        fprintf(stdout, "%s, %s, %d, %d, %d, %d, %0.3f\n", filename, dom_type, N, edge_count, best, its_completed, total_time);
+        if(output_types == -1){
+            fprintf(stdout, "%s, %s, %d, %d, %d, %d, %0.3f\n", filename, dom_type, N, edge_count, best, its_completed, total_time);
+        }
+    } else {
+        fprintf(stdout, "Unable to dominate graph - probably disconnected");
     }
 
 
@@ -398,8 +411,9 @@ void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** 
  * @param degrees degree of each vertex in the graph to be dominated
  * @param neighbours neighbours of each vertex in the graph to be dominated
  * @param P probabilities that each vertex will be selected for the domset
+ * @return 1 if domset is possible, 0 if not
  */
-void make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, bool (*dom_func)(int*, int, int*, int**)){
+int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, bool (*dom_func)(int*, int, int*, int**)){
     domset = (int*) malloc(N*sizeof(int));//new int[N];
     memset(domset, 0, N*sizeof(int));
 
@@ -407,9 +421,17 @@ void make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P,
     memcpy(Ptemp, P, sizeof(*P)*N);
 
     while(!(*dom_func)(domset, N, degrees, neighbours)){
+
+        if(calculate_score(N, domset) == N){
+            return 0;    
+        }
+
         int ind = weight_rand(N, Ptemp);
         domset[ind] = 1;
         Ptemp[ind] = 0;
+
+        
+
     }
 
     for (int i = 0; i < N; i++){
@@ -439,7 +461,7 @@ void make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P,
 
     }
     
-
+    return 1;
 
 }
 
