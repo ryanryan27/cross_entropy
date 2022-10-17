@@ -47,7 +47,7 @@ int main(int argc, char* argv[]){
     bool has_file = 0;
 
     char* dom_type =(char*)"d";
-    bool (*dom_func)(int*, int, int*, int**) = &dominates;
+    bool (*dom_func)(int*, int*&, int&, int, int, int*, int**) = &dominates;
 
     for (int i = 0; i < argc; i++)
     {
@@ -83,13 +83,13 @@ int main(int argc, char* argv[]){
             if(!strcmp(dom_type, "d")){
                 dom_func = &dominates;
             } else if(!strcmp(dom_type, "s")){
-                dom_func = &secure_dominates;
+                //dom_func = &secure_dominates;
             } else if(!strcmp(dom_type, "t")){
-                dom_func = &total_dominates;
+                //dom_func = &total_dominates;
             } else if(!strcmp(dom_type, "2")){
-                dom_func = &two_dominates;
+                //dom_func = &two_dominates;
             } else if(!strcmp(dom_type, "c")){
-                dom_func = &connected_dominates;
+                //dom_func = &connected_dominates;
             }
 
         }
@@ -109,13 +109,13 @@ int main(int argc, char* argv[]){
     make_graph(N, degrees, neighbours, edge_count, edges);
 
 
-    dombest = (int*) malloc(N*sizeof(int));//new int[N];
-    P = (double*) malloc(N*sizeof(double));//new double[N];
-    Pstar = (double*) malloc(N*sizeof(double));//new double[N];
+    dombest = (int*) malloc(N*sizeof(int));
+    P = (double*) malloc(N*sizeof(double));
+    Pstar = (double*) malloc(N*sizeof(double));
 
 
-    domsets = (int**) malloc(n*sizeof(int*));//new int*[n];
-    L =  (double*) malloc(n*sizeof(double));//new double[n];
+    domsets = (int**) malloc(n*sizeof(int*));
+    L =  (double*) malloc(n*sizeof(double));
 
     int results[iterations] = {0};
     int best = N;
@@ -142,8 +142,6 @@ int main(int argc, char* argv[]){
         int t = 0;
 
         while(true){
-
-            
 
             for (int j = 0; j < n; j++)
             {
@@ -189,21 +187,6 @@ int main(int argc, char* argv[]){
             }
 
             t++;
-
-        /*for (int i  = 0; i < N; i++)
-        {
-            fprintf(stdout, "%.2f ", Pstar[i]);
-        }
-        for( int j = 0; j < m; j++){
-        for (int i = 0; i < N; i++){
-            if(domsets[j][i]){
-                fprintf(stdout, "%d ", i+label_offset);
-            }
-        }
-            fprintf(stdout, "\n");
-        }
-    
-        fprintf(stdout, "\n");*/
         
         }
 
@@ -263,10 +246,14 @@ int main(int argc, char* argv[]){
         }
 
         if(output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %d, %0.3f\n", filename, dom_type, N, edge_count, best, its_completed, total_time);
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", filename, dom_type, n, m, r, rho, alpha, best, total_time);
         }
     } else {
-        fprintf(stdout, "Unable to dominate graph - probably disconnected");
+        if(output_types == -1){
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", filename, dom_type, n, m, r, rho, alpha, -1, 0.00);
+        } else {
+            fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
+        }
     }
 
 
@@ -413,23 +400,35 @@ void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** 
  * @param P probabilities that each vertex will be selected for the domset
  * @return 1 if domset is possible, 0 if not
  */
-int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, bool (*dom_func)(int*, int, int*, int**)){
-    domset = (int*) malloc(N*sizeof(int));//new int[N];
+int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, bool (*dom_func)(int*, int*&, int&, int, int, int*, int**)){
+    domset = (int*) malloc(N*sizeof(int));
     memset(domset, 0, N*sizeof(int));
+
+    int* dommed = (int*) malloc(N*sizeof(int));
+    memset(dommed, 0, N*sizeof(int));
+
+    int domsum = 0;
 
     double Ptemp[N];
     memcpy(Ptemp, P, sizeof(*P)*N);
 
-    while(!(*dom_func)(domset, N, degrees, neighbours)){
+    int ind = weight_rand(N, Ptemp);
+    domset[ind] = 1;
+    Ptemp[ind] = 0;
+
+    while(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours)){
 
         if(calculate_score(N, domset) == N){
+            free(Ptemp);
+            free(dommed);
             return 0;    
         }
 
-        int ind = weight_rand(N, Ptemp);
+        ind = weight_rand(N, Ptemp);
         domset[ind] = 1;
         Ptemp[ind] = 0;
 
+        
         
 
     }
@@ -454,13 +453,15 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
         Ptemp[ind] = 0;
         if(domset[ind]){
             domset[ind] = 0;
-            if(!(*dom_func)(domset, N, degrees, neighbours)){
+            if(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours)){
                 domset[ind] = 1;
             }
         }
 
     }
-    
+
+    free(Ptemp);
+    free(dommed);
     return 1;
 
 }
@@ -580,22 +581,23 @@ double calculate_Pstar(int i, int m, double* L, int** domsets, double delta){
  * @return true if the given set is dominating
  * @return false if the given set is not dominating
  */
-bool dominates(int* domset, int N, int* degrees, int** neighbours){
-    int dommed[N] = {0};
+bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* degrees, int** neighbours){
+    //int dommed[N] = {0};
 
-    for (int i = 0; i < N; i++)
-    {
-        if(domset[i]){
-            dommed[i] = 1;
-            for (int j = 0; j < degrees[i]; j++)
-            {
-                dommed[neighbours[i][j]] = 1;
+    if(added == -1){
+        for (int i = 0; i < N; i++)
+        {
+            if(domset[i]){
+                dommed[i] = 1;
+                for (int j = 0; j < degrees[i]; j++)
+                {
+                    dommed[neighbours[i][j]] = 1;
+                }
+
             }
-            
         }
-    }
 
-    for (int i = 0; i < N; i++)
+            for (int i = 0; i < N; i++)
     {
         if(!dommed[i]){
             return false;
@@ -604,6 +606,65 @@ bool dominates(int* domset, int N, int* degrees, int** neighbours){
     
     
     return true;
+
+
+    }
+
+    if(domset[added]){
+
+        if(!dommed[added]) domsum++;
+        dommed[added] = 1;
+        for (int j = 0; j < degrees[added]; j++)
+        {
+            if(!dommed[neighbours[added][j]]) domsum++;
+            dommed[neighbours[added][j]] = 1;
+        }
+
+    } else {
+
+        bool undommed = true;
+        for (int j = 0; j < degrees[added]; j++)
+        {
+            int nbr = neighbours[added][j];
+            if(domset[nbr]){
+                undommed = false;
+                break;
+            }
+            
+        }
+
+        if(undommed){
+            dommed[added] = 0;
+            domsum--;
+        } 
+
+        for (int i = 0; i < degrees[added]; i++)
+        {
+            undommed = true;
+            for (int j = 0; j < degrees[i]; j++)
+            {
+                int nbr = neighbours[i][j];
+                if(domset[nbr]){
+                    undommed = false;
+                    break;
+                }
+                
+            }
+
+            if(undommed){
+                dommed[i] = 0;
+                domsum--;
+            } 
+        }
+        
+
+    }
+    
+    
+
+    return domsum == N;
+
+
 }
 
 /**
@@ -688,9 +749,9 @@ bool two_dominates(int* domset, int N, int* degrees, int** neighbours){
  * @return false if the given set is not secure dominating
  */
 bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
-    if(!dominates(domset, N, degrees, neighbours)){
-        return false;
-    }
+    // if(!dominates(domset, N, degrees, neighbours)){
+    //     return false;
+    // }
 
     for (int i = 0; i < N; i++)
     {
@@ -704,7 +765,7 @@ bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
                 if(domset[nb]){
                     domset[i]++;
                     domset[nb]--;
-                    dommed = dominates(domset, N, degrees, neighbours);
+                    dommed = false;//dominates(domset, N, degrees, neighbours);
                     domset[i]--;
                     domset[nb]++;
 
@@ -732,7 +793,8 @@ bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
  * @return false if the given set is not connected dominating
  */
 bool connected_dominates(int* subset, int N, int* degrees, int** neighbours){
-    return dominates(subset, N, degrees, neighbours) && connected(subset, N, degrees, neighbours);
+    return false;
+    //return dominates(subset, N, degrees, neighbours) && connected(subset, N, degrees, neighbours);
 }
 
 /**
