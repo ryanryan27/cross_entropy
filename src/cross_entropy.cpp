@@ -37,7 +37,7 @@ int main(int argc, char* argv[]){
     double* L;
 
     int label_offset = 1;
-    int seed;
+    int seed = 0;
     int iterations = 1;
     int output_types = 0;
 
@@ -455,6 +455,7 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
             domset[ind] = 0;
             if(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours)){
                 domset[ind] = 1;
+                (*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours);
             }
         }
 
@@ -614,15 +615,21 @@ bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* de
 
         if(!dommed[added]) domsum++;
         dommed[added] = 1;
+        //fprintf(stdout, "%d is now added and domsum is %d\n", added+1, domsum);
         for (int j = 0; j < degrees[added]; j++)
         {
-            if(!dommed[neighbours[added][j]]) domsum++;
-            dommed[neighbours[added][j]] = 1;
+            if(!dommed[neighbours[added][j]]) 
+            {
+                domsum++;
+                dommed[neighbours[added][j]] = 1;
+                //fprintf(stdout, "%d is now dommed and domsum is %d\n", neighbours[added][j]+1, domsum);
+            }
         }
 
     } else {
 
         bool undommed = true;
+        //fprintf(stdout, "%d is now removed\n", added+1);
         for (int j = 0; j < degrees[added]; j++)
         {
             int nbr = neighbours[added][j];
@@ -636,14 +643,20 @@ bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* de
         if(undommed){
             dommed[added] = 0;
             domsum--;
+            //fprintf(stdout, "%d is now undominated\n", added+1);
+            return false;
         } 
 
         for (int i = 0; i < degrees[added]; i++)
         {
+            int neighbour = neighbours[added][i];
+
+            if(domset[neighbour]) continue;
+
             undommed = true;
-            for (int j = 0; j < degrees[i]; j++)
+            for (int j = 0; j < degrees[neighbour]; j++)
             {
-                int nbr = neighbours[i][j];
+                int nbr = neighbours[neighbour][j];
                 if(domset[nbr]){
                     undommed = false;
                     break;
@@ -652,15 +665,16 @@ bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* de
             }
 
             if(undommed){
-                dommed[i] = 0;
+                dommed[neighbour] = 0;
                 domsum--;
+                //fprintf(stdout, "%d is now undominated\n", neighbour+1);
+                return false;
             } 
         }
         
 
     }
-    
-    
+
 
     return domsum == N;
 
