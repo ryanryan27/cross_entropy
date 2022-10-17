@@ -37,7 +37,7 @@ int main(int argc, char* argv[]){
     double* L;
 
     int label_offset = 1;
-    int seed;
+    int seed = 0;
     int iterations = 1;
     int output_types = 0;
 
