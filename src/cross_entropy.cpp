@@ -85,7 +85,7 @@ int main(int argc, char* argv[]){
             } else if(!strcmp(dom_type, "s")){
                 //dom_func = &secure_dominates;
             } else if(!strcmp(dom_type, "t")){
-                //dom_func = &total_dominates;
+                dom_func = &total_dominates;
             } else if(!strcmp(dom_type, "2")){
                 //dom_func = &two_dominates;
             } else if(!strcmp(dom_type, "c")){
@@ -108,6 +108,7 @@ int main(int argc, char* argv[]){
 
     make_graph(N, degrees, neighbours, edge_count, edges);
 
+    
 
     dombest = (int*) malloc(N*sizeof(int));
     P = (double*) malloc(N*sizeof(double));
@@ -116,6 +117,12 @@ int main(int argc, char* argv[]){
 
     domsets = (int**) malloc(n*sizeof(int*));
     L =  (double*) malloc(n*sizeof(double));
+
+    for (int i = 0; i < n; i++)
+    {
+        domsets[i] = (int*) malloc(N*sizeof(int));
+    }
+    
 
     int results[iterations] = {0};
     int best = N;
@@ -126,10 +133,13 @@ int main(int argc, char* argv[]){
 
     int domset_possible = 1;
 
+    
     for (int i = 0; i < iterations; i++)
     {
         if (!domset_possible) break;
         
+        
+
         srand(seed + i);
 
         for (int j = 0;j < N;j++)
@@ -142,22 +152,28 @@ int main(int argc, char* argv[]){
         int t = 0;
 
         while(true){
-
+            
+        
             for (int j = 0; j < n; j++)
             {
                 domset_possible = make_domset(domsets[j], N, degrees, neighbours, P, (*dom_func));
-                
+            
                 if (!domset_possible) break;
 
                 L[j] = calculate_score(N, domsets[j]);
             }
 
+        
+
             if (!domset_possible) break;
 
             sort_domsets(L, domsets, n, N);
+
+        
             
             if(calculate_score(N, dombest) > L[0]){
-                dombest = domsets[0];
+                memcpy(dombest, domsets[0], N*sizeof(int));
+                //dombest = domsets[0];
                 t = 0;
             }
             //fprintf(stdout, "Best Domset this iteration: %d \n", (int)calculate_score(N, dombest));
@@ -186,6 +202,7 @@ int main(int argc, char* argv[]){
                 P[j] = (1-alpha)*P[j] + alpha*(Pstar[j]/psum);
             }
 
+            
             t++;
         
         }
@@ -401,7 +418,7 @@ void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** 
  * @return 1 if domset is possible, 0 if not
  */
 int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, bool (*dom_func)(int*, int*&, int&, int, int, int*, int**)){
-    domset = (int*) malloc(N*sizeof(int));
+    
     memset(domset, 0, N*sizeof(int));
 
     int* dommed = (int*) malloc(N*sizeof(int));
@@ -412,26 +429,53 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
     double Ptemp[N];
     memcpy(Ptemp, P, sizeof(*P)*N);
 
-    int ind = weight_rand(N, Ptemp);
+    double sumP = 0;
+
+    for (int i = 0; i < N; i++)
+    {
+        sumP += P[i];
+    }
+
+
+    
+
+    int ind = weight_rand(N, Ptemp, sumP);
+
+    
+
     domset[ind] = 1;
+    sumP -= Ptemp[ind];
     Ptemp[ind] = 0;
+    
+    int domcount = 1;
 
     while(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours)){
+        // if(calculate_score(N, domset) == 0){
+        //     fprintf(stdout, "calc %d", 0);
+        //     exit(0);
+        // }
 
-        if(calculate_score(N, domset) == N){
+        // if(domcount !=calculate_score(N, domset)){
+        //     fprintf(stdout, "domsum %d, calc %d\n", domcount, calculate_score(N, domset));
+        //     exit(0);
+        // }
+        if(domcount == N){
             free(Ptemp);
             free(dommed);
             return 0;    
         }
 
-        ind = weight_rand(N, Ptemp);
+        ind = weight_rand(N, Ptemp, sumP);
         domset[ind] = 1;
+        domcount++;
+        sumP -= Ptemp[ind];
         Ptemp[ind] = 0;
 
         
         
 
     }
+
 
     for (int i = 0; i < N; i++){
 
@@ -447,9 +491,17 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
     }
 
 
+    sumP = 0;
+
     for (int i = 0; i < N; i++)
     {
-        int ind = weight_rand(N, Ptemp);
+        sumP += Ptemp[i];
+    }
+
+    for (int i = 0; i < N; i++)
+    {
+        int ind = weight_rand(N, Ptemp, sumP);
+        sumP -= Ptemp[ind];
         Ptemp[ind] = 0;
         if(domset[ind]){
             domset[ind] = 0;
@@ -461,7 +513,6 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
 
     }
 
-    free(Ptemp);
     free(dommed);
     return 1;
 
@@ -682,6 +733,108 @@ bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* de
 }
 
 /**
+ * @brief Determines if the given domset is total dominating. 
+ * Maintains a list of domination status of each vertex.
+ * 
+ * @param domset 
+ * @param dommed 
+ * @param domsum 
+ * @param added 
+ * @param N 
+ * @param degrees 
+ * @param neighbours 
+ * @return true 
+ * @return false 
+ */
+bool total_dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* degrees, int** neighbours){
+
+    if(added == -1){
+        for (int i = 0; i < N; i++)
+        {
+            if(domset[i]){
+                for (int j = 0; j < degrees[i]; j++)
+                {
+                    dommed[neighbours[i][j]] = 1;
+                }
+
+            }
+        }
+
+            for (int i = 0; i < N; i++)
+    {
+        if(!dommed[i]){
+            return false;
+        }
+    }
+    
+    
+    return true;
+
+
+    }
+
+    if(domset[added]){
+
+        for (int j = 0; j < degrees[added]; j++)
+        {
+            if(!dommed[neighbours[added][j]]) 
+            {
+                domsum++;
+                dommed[neighbours[added][j]] = 1;
+            }
+        }
+
+    } else {
+
+        bool undommed = true;
+        for (int j = 0; j < degrees[added]; j++)
+        {
+            int nbr = neighbours[added][j];
+            if(domset[nbr]){
+                undommed = false;
+                break;
+            }
+            
+        }
+
+        if(undommed){
+            dommed[added] = 0;
+            domsum--;
+            return false;
+        } 
+
+        for (int i = 0; i < degrees[added]; i++)
+        {
+            int neighbour = neighbours[added][i];
+
+            if(domset[neighbour]) continue;
+
+            undommed = true;
+            for (int j = 0; j < degrees[neighbour]; j++)
+            {
+                int nbr = neighbours[neighbour][j];
+                if(domset[nbr]){
+                    undommed = false;
+                    break;
+                }
+                
+            }
+
+            if(undommed){
+                dommed[neighbour] = 0;
+                domsum--;
+                return false;
+            } 
+        }
+        
+
+    }
+
+    return domsum == N;
+
+}
+
+/**
  * @brief Determine if the given dominating set totally dominates the graph defined by the list of neighbours.
  * 
  * @param domset The dominating set to check
@@ -876,25 +1029,34 @@ bool connected(int* subset, int N, int* degrees, int** neighbours){
  * @param P some distribution of values
  * @return index of the selected value
  */
-int weight_rand(int N, double* P){
+int weight_rand(int N, double* P, double sumP){
 
-    double sum = P[0];
-    double cumulative[N] = {sum};
-    for (int i = 1; i < N; i++)
-    {
-        sum += P[i];
-        cumulative[i] = P[i] + cumulative[i-1];
-        
-    }
-
-    double val = sum*rand()/double(RAND_MAX);
+    
+    double val = (sumP-1e-6)*(rand()/double(RAND_MAX));
 
     for (int i = 0; i < N; i++)
     {
-        if(val < cumulative[i]){
+        if(val < P[i]){
+            
             return i;
         }
+        val -= P[i];
+        
     }
 
     return 0;
 }
+
+// int weight_rand_cum(int N, double* cumulativeP, double r){
+//     double val = (cumulativeP[N-1]-1e-6)*r;
+
+//     for (int i = 0; i < N; i++)
+//     {
+//         if(val+1e-15 < cumulativeP[i]){
+//             return i;
+//         }
+//     }
+
+//     return 0;
+
+// }
