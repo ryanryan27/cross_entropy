@@ -9,8 +9,10 @@ double calculate_Pstar(int, int, double*, int**, double);
 bool dominates(int*, int*&, int&, int, int, int*, int**);
 bool total_dominates(int*, int*&, int&, int, int, int*, int**);
 bool total_dominates(int*, int, int*, int**);
+bool two_dominates(int*, int*&, int&, int, int, int*, int**);
 bool two_dominates(int*, int, int*, int**);
 bool secure_dominates(int*, int, int*, int**);
+bool connected_dominates(int*, int*&, int&, int, int, int*, int**);
 bool connected_dominates(int*, int, int*, int**);
 bool connected(int*, int, int*, int**);
 
