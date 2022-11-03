@@ -17,5 +17,6 @@ bool connected_dominates(int*, int, int*, int**);
 bool connected(int*, int, int*, int**);
 
 int weight_rand(int, double*, double);
+int weight_rand_acc(int, double*, double, int*&);
 
 

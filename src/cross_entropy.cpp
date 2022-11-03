@@ -424,31 +424,54 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
     memcpy(Ptemp, P, sizeof(*P)*N);
 
     double sumP = 0;
+    
 
     for (int i = 0; i < N; i++)
     {
-        sumP += P[i];
+        Ptemp[i] += 1;
+        sumP += Ptemp[i];
+    }
+
+    int* links = (int*) malloc((2*N+1)*sizeof(int));
+    links[N-1] = -1;
+    links[N] = -1;
+    links[2*N] = 0;
+    
+    for(int i = 0; i < N-1; i++){
+        links[i] = i+1;
+        links[N + i + 1] = i;
     }
     
+    // fprintf(stdout, "adding \n");
+
     int domcount = 0;
     int ind;
     do {
         if(domcount == N){
             free(dommed);
+            //free(links);
             return 0;    
         }
 
-        ind = weight_rand(N, Ptemp, sumP);
+        // ind = weight_rand(N, Ptemp, sumP);
+        ind = weight_rand_acc(N, Ptemp, sumP, links);
+
         domset[ind] = 1;
         domcount++;
         sumP -= Ptemp[ind];
         Ptemp[ind] = 0;
+
     } while(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours));
 
 
     for (int i = 0; i < N; i++){
 
         Ptemp[i] = 1.0 - P[i];
+
+        if(Ptemp[i] < 0 ){
+            fprintf(stdout, "oh no \n");
+            exit(0);
+        }
 
     }
 
@@ -460,11 +483,25 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
         sumP += Ptemp[i];
     }
 
+    links[N-1] = -1;
+    links[N] = -1;
+    links[2*N] = 0;
+    
+    for(int i = 0; i < N-1; i++){
+        links[i] = i+1;
+        links[N + i + 1] = i;
+    }
+
+    //  fprintf(stdout, "removing \n");
+
     for (int i = 0; i < N; i++)
     {
-        int ind = weight_rand(N, Ptemp, sumP);
+        // int ind = weight_rand(N, Ptemp, sumP);
+        int ind = weight_rand_acc(N, Ptemp, sumP, links);
+
         sumP -= Ptemp[ind];
         Ptemp[ind] = 0;
+
         if(domset[ind]){
             domset[ind] = 0;
             if(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours)){
@@ -475,7 +512,10 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
 
     }
 
+    //fprintf(stdout, "here \n");
+
     free(dommed);
+    //free(links);
     return 1;
 
 }
@@ -915,4 +955,43 @@ int weight_rand(int N, double* P, double sumP){
     }
 
     return 0;
+}
+
+
+int weight_rand_acc(int N, double* P, double sumP, int*& links){
+    double val = (sumP)*(rand()/double(RAND_MAX));
+    double sum = 1e-6;
+
+    int ind  = links[2*N];
+    for(;;){
+        // fprintf(stdout, "ind is: %d\n", ind);
+        sum += P[ind];
+
+        // fprintf(stdout, "val is: %.10f\n", val);
+
+        if(val <= sum){
+            //  fprintf(stdout, "selected: %d\n", ind);
+            int prev = links[ind+N];
+            int next = links[ind];
+
+            links[prev] = next;
+            links[next+N] = prev;
+
+            if(ind == links[2*N]){
+                links[2*N] = next;
+            }
+            return ind;
+        }
+
+        ind = links[ind];
+        
+
+    }
+    
+    
+    fprintf(stdout, "val is: %.10f, sum is %.10f\n", val, sum);
+    fprintf(stdout, "bad times\n");
+
+    return -1;
+
 }
