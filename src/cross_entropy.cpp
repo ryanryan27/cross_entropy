@@ -444,6 +444,21 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
     
     // fprintf(stdout, "adding \n");
 
+    int pre_calc = 1;//floor(sqrt(N/2));
+
+    int choices[pre_calc];
+
+    for (int i = 0; i < pre_calc; i++)
+    {
+        choices[i] = weight_rand_acc(N, Ptemp, sumP, links);
+        sumP -= Ptemp[choices[i]];
+        Ptemp[choices[i]] = 0;
+    }
+    
+
+    int choice_num = 0;
+
+
     int domcount = 0;
     int ind;
     do {
@@ -454,12 +469,26 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
         }
 
         // ind = weight_rand(N, Ptemp, sumP);
-        ind = weight_rand_acc(N, Ptemp, sumP, links);
+
+        if(choice_num >= pre_calc){
+            for (int i = 0; i < pre_calc; i++)
+            {
+                int indx = weight_rand_acc(N, Ptemp, sumP, links);
+
+                choices[i] = indx;
+                if(indx == -1) break;
+
+                sumP -= Ptemp[indx];
+                Ptemp[indx] = 0;
+            }
+            choice_num = 0;
+        }
+
+        ind = choices[choice_num++];
 
         domset[ind] = 1;
         domcount++;
-        sumP -= Ptemp[ind];
-        Ptemp[ind] = 0;
+        
 
     } while(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours));
 
@@ -492,15 +521,37 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
         links[N + i + 1] = i;
     }
 
+
+    for (int i = 0; i < pre_calc; i++)
+    {
+        choices[i] = weight_rand_acc(N, Ptemp, sumP, links);
+        sumP -= Ptemp[choices[i]];
+        Ptemp[choices[i]] = 0;
+    }
+    
+
+    choice_num = 0;
+
     //  fprintf(stdout, "removing \n");
 
     for (int i = 0; i < N; i++)
     {
         // int ind = weight_rand(N, Ptemp, sumP);
-        int ind = weight_rand_acc(N, Ptemp, sumP, links);
+        if(choice_num >= pre_calc){
+            for (int i = 0; i < pre_calc; i++)
+            {
+                int indx = weight_rand_acc(N, Ptemp, sumP, links);
 
-        sumP -= Ptemp[ind];
-        Ptemp[ind] = 0;
+                choices[i] = indx;
+                if(indx == -1) break;
+
+                sumP -= Ptemp[indx];
+                Ptemp[indx] = 0;
+            }
+            choice_num = 0;
+        }
+
+        int ind = choices[choice_num++];
 
         if(domset[ind]){
             domset[ind] = 0;
