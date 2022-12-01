@@ -10,88 +10,47 @@ static const double e = 2.71828;
 int main(int argc, char* argv[]){
 
 
-    //Graph Variables
-    char* filename;
-    int N;
-    int max_degree;
+    Graph graph;
 
-    int* degrees;
-    int** neighbours;
-    int** edges;
+    Params params;
 
-    //Parameters
-    int n = 50;
-    int m = 10;
-    int r = 5;
-    double rho = 0.1;
-    double alpha = 0.5;
-
-
-    //Calculated vars
-    double delta;
-
-    int* dombest;
-    int** domsets;
-    double* P;
-    double* Pstar;
-    double* L;
-
-    int label_offset = 1;
-    int seed = 0;
-    int iterations = 1;
-    int output_types = 0;
+    CEUpdater ce;
 
     double timeout = -1;
-    bool out_of_time = false;
     
     bool has_file = 0;
-
-    char* dom_type =(char*)"d";
-    bool (*dom_func)(int*, int*&, int&, int, int, int*, int**) = &dominates;
 
     for (int i = 0; i < argc; i++)
     {
         char* s = argv[i];
         
         if(!strcmp(s, "-f")){
-            filename = argv[++i];
+            params.filename = argv[++i];
             has_file = 1;
 
             if(i + 1 < argc && argv[i+1][0] != '-'){
-                label_offset = atoi(argv[++i]);
+                params.label_offset = atoi(argv[++i]);
             }
         } else if(!strcmp(s, "-n")){
-            n = atoi(argv[++i]);
+            params.n = atoi(argv[++i]);
         } else if(!strcmp(s, "-m")){
-            m = atoi(argv[++i]);
+            params.m = atoi(argv[++i]);
         } else if(!strcmp(s, "-r")){
-            r = atoi(argv[++i]);
+            params.r = atoi(argv[++i]);
         } else if(!strcmp(s, "-R")){
-            rho = atof(argv[++i]);
+            params.rho = atof(argv[++i]);
         } else if(!strcmp(s, "-a")){
-            alpha = atof(argv[++i]);
+            params.alpha = atof(argv[++i]);
         } else if(!strcmp(s, "-s")){
-            seed = atof(argv[++i]);
+            params.seed = atof(argv[++i]);
         } else if(!strcmp(s, "-t")){
             timeout = atof(argv[++i]);
         } else if(!strcmp(s, "-o")){
-            output_types = atof(argv[++i]);
+            params.output_types = atof(argv[++i]);
         } else if(!strcmp(s, "-i")){
-            iterations = atoi(argv[++i]);
+            params.iterations = atoi(argv[++i]);
         } else if(!strcmp(s, "-d")){
-            dom_type = argv[++i];
-            if(!strcmp(dom_type, "d")){
-                dom_func = &dominates;
-            } else if(!strcmp(dom_type, "s")){
-                //dom_func = &secure_dominates;
-            } else if(!strcmp(dom_type, "t")){
-                dom_func = &total_dominates;
-            } else if(!strcmp(dom_type, "2")){
-                dom_func = &two_dominates;
-            } else if(!strcmp(dom_type, "c")){
-                dom_func = &connected_dominates;
-            }
-
+            params.dom_type = argv[++i];
         }
     }
     
@@ -100,80 +59,59 @@ int main(int argc, char* argv[]){
         return 1;
     }
 
-    
     clock_t start = clock();
 
-    int edge_count = read_edges(edges, filename, label_offset);
+    graph.M = read_edges(graph, params);
 
 
-    make_graph(N, degrees, neighbours, edge_count, edges);
+    make_graph(graph);
 
+
+    init_updater(ce, graph, params);
     
-
-    dombest = (int*) malloc(N*sizeof(int));
-    P = (double*) malloc(N*sizeof(double));
-    Pstar = (double*) malloc(N*sizeof(double));
-
-
-    domsets = (int**) malloc(n*sizeof(int*));
-    L =  (double*) malloc(n*sizeof(double));
-
-    for (int i = 0; i < n; i++)
-    {
-        domsets[i] = (int*) malloc(N*sizeof(int));
-    }
-    
-
-    int results[iterations] = {0};
-    int best = N;
-    int best_domset[N] = {1};
-
     bool timed_out = false;
     int its_completed = 0;
-
     int domset_possible = 1;
 
     
-    for (int i = 0; i < iterations; i++)
+    for (int i = 0; i < params.iterations; i++)
     {
         if (!domset_possible) break;
         
-        srand(seed + i);
+        srand(params.seed + i);
 
-        for (int j = 0;j < N;j++)
+        for (int j = 0;j < graph.N;j++)
         {
-            dombest[j] = 1;
-            P[j] = 1.0/double(N);
-            Pstar[j] = 0;
+            ce.dombest[j] = 1;
+            ce.P[j] = 1.0/double(graph.N);
+            ce.Pstar[j] = 0;
         }
 
         int t = 0;
 
         while(true){
             
-        
-            for (int j = 0; j < n; j++)
+            for (int j = 0; j < params.n; j++)
             {
-                domset_possible = make_domset(domsets[j], N, degrees, neighbours, P, (*dom_func));
-            
+                domset_possible = make_domset(ce.domsets[j], graph, ce, params);
+                
                 if (!domset_possible) break;
 
-                L[j] = calculate_score(N, domsets[j]);
+                ce.L[j] = calculate_score(graph.N, ce.domsets[j]);
             }
 
-        
+
 
             if (!domset_possible) break;
 
-            sort_domsets(L, domsets, n, N);
-
+            sort_domsets(ce, graph, params);
             
-            if(calculate_score(N, dombest) > L[0]){
-                memcpy(dombest, domsets[0], N*sizeof(int));
+            if(calculate_score(graph.N, ce.dombest) > ce.L[0]){
+                memcpy(ce.dombest, ce.domsets[0], graph.N*sizeof(int));
                 t = 0;
             }
 
-            if(t > r){
+            if(t > params.r){
                 break;
             }
 
@@ -183,38 +121,38 @@ int main(int argc, char* argv[]){
             }
 
 
-            delta = -1*L[0]/log(rho);
+            ce.delta = -1*ce.L[0]/log(params.rho);
 
             double psum = 0;
-            for (int j = 0; j < N; j++)
+            for (int j = 0; j < graph.N; j++)
             {
-                Pstar[j] = calculate_Pstar(j, m, L, domsets, delta);
-                psum += Pstar[j];
+                ce.Pstar[j] = calculate_Pstar(j, ce, params);
+                psum += ce.Pstar[j];
             }
 
-            for (int j = 0; j < N; j++)
+            for (int j = 0; j < graph.N; j++)
             {
-                P[j] = (1-alpha)*P[j] + alpha*(Pstar[j]/psum);
+                ce.P[j] = (1-params.alpha)*ce.P[j] + params.alpha*(ce.Pstar[j]/psum);
             }
 
-            
             t++;
         
         }
 
+
         int sum = 0;
-        for (int j = 0; j < N; j++)
+        for (int j = 0; j < graph.N; j++)
         {
-            sum += dombest[j];
+            sum += ce.dombest[j];
         }
 
-        results[i] = sum;
+        ce.results[i] = sum;
 
-        if(results[i] <best){
-            best = results[i];
-            for (int j = 0; j < N; j++)
+        if(ce.results[i] <ce.best){
+            ce.best = ce.results[i];
+            for (int j = 0; j < graph.N; j++)
             {
-                best_domset[j] = dombest[j];
+                ce.best_domset[j] = ce.dombest[j];
             }
             
         }
@@ -226,70 +164,82 @@ int main(int argc, char* argv[]){
         }
     }
 
+
+
     double total_time  = (double)(clock() - start)/CLOCKS_PER_SEC;
     if(domset_possible){
-        if(output_types > 0){
-            fprintf(stdout, "Best is %d guards\n", best);
+        if(params.output_types > 0){
+            fprintf(stdout, "Best is %d guards\n", ce.best);
             fprintf(stdout, "Time taken: %0.3f \n", total_time);
             fprintf(stdout, "Dominating set: \n");
         }
 
-        for (int i  = 0; i < N; i++)
+        for (int i  = 0; i < graph.N; i++)
         {
-            if(output_types == 1){
-                fprintf(stdout, "%d ", best_domset[i]);
-            } else if(output_types == 2 && best_domset[i]){
-                fprintf(stdout, "%d ", i+label_offset);
-            } else if(output_types == 3){
-                fprintf(stdout, "%d    ", best_domset[i]);
+            if(params.output_types == 1){
+                fprintf(stdout, "%d ", ce.best_domset[i]);
+            } else if(params.output_types == 2 && ce.best_domset[i]){
+                fprintf(stdout, "%d ", i+params.label_offset);
+            } else if(params.output_types == 3){
+                fprintf(stdout, "%d    ", ce.best_domset[i]);
             }
             
         }
-        if(output_types > 0){
+        if(params.output_types > 0){
             fprintf(stdout, "\n");
         }
-        if(output_types == 3){
-            for (int i  = 0; i < N; i++)
+        if(params.output_types == 3){
+            for (int i  = 0; i < graph.N; i++)
             {
-                fprintf(stdout, "%.2f ", P[i]);
+                fprintf(stdout, "%.2f ", ce.P[i]);
             }
         
             fprintf(stdout, "\n");
         }
 
-        if(output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", filename, dom_type, n, m, r, rho, alpha, best, total_time);
+        if(params.output_types == -1){
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, ce.best, total_time);
         }
     } else {
-        if(output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", filename, dom_type, n, m, r, rho, alpha, -1, 0.00);
+        if(params.output_types == -1){
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
         } else {
             fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
         }
     }
 
+    
+    fprintf(stdout, "start freeing!\n");
+    fprintf(stdout, "%d edges\n", graph.M);
+    for (int i = 0; i < graph.M; i++)
+    {
+        fprintf(stdout, "%d %d\n", graph.edges[i][0], graph.edges[i][1]);
+        free(graph.edges[i]);
+    }
+    fprintf(stdout, "neighbours\n");
+    for(int i = 0; i < graph.N; i++)
+    {
+        free(graph.neighbours[i]);
+    }
+    fprintf(stdout, "domsets\n");
+    for (int i = 0; i < params.n; i++)
+    {
+        free(ce.domsets[i]);
+    }
 
-    for (int i = 0; i < edge_count; i++)
-    {
-        free(edges[i]);
-    }
-    for(int i = 0; i < N; i++)
-    {
-        free(neighbours[i]);
-    }
-    for (int i = 0; i < n; i++)
-    {
-        free(domsets[i]);
-    }
+    fprintf(stdout, "dombest\n");
+    free(ce.dombest);
+    free(ce.P);
+    free(ce.Pstar);
+    free(ce.L);
+    free(graph.degrees);
+    free(graph.edges);
+    free(graph.neighbours);
+    free(ce.domsets);
+    free(ce.results);
+    free(ce.best_domset);
 
-    free(dombest);
-    free(P);
-    free(Pstar);
-    free(L);
-    free(degrees);
-    free(edges);
-    free(neighbours);
-    free(domsets);
+    fprintf(stdout, "finished freeing!\n");
 
     return 0;
 }
@@ -297,13 +247,11 @@ int main(int argc, char* argv[]){
 /**
  * @brief Reads a list of edges from a given file. 
  * 
- * @param edges will contain list of edges
- * @param filename name of file to open
- * @param label_offset either 0 or 1 depending on indexing of vertices
- * @return -1 if no file, number of edges otherwise.
+ * @param graph a graph struct whose edges will be updated to contain those listed in the specified file
+ * @param Params a set of parameters that contains the filename of the edge list file
  */
-int read_edges(int**& edges, char* filename, int label_offset){
-    FILE* file = fopen(filename, "r");
+int read_edges(Graph& graph, Params params){
+    FILE* file = fopen(params.filename, "r");
 
     if(!file){
         fprintf(stdout, "File does not exist\n");
@@ -323,18 +271,15 @@ int read_edges(int**& edges, char* filename, int label_offset){
 
         
         edge_buffer[count] = (int*) malloc(2*sizeof(int));
-        edge_buffer[count][0] = a - label_offset;
-        edge_buffer[count++][1] = b - label_offset;
+        edge_buffer[count][0] = a - params.label_offset;
+        edge_buffer[count++][1] = b - params.label_offset;
         
     }
 
-    edges = (int**) malloc(count*sizeof(int*));
+    graph.edges = (int**) malloc(count*sizeof(int*));
     for (int i = 0; i < count; i++)
     {
-        edges[i] = (int*) malloc(2*sizeof(int));
-        edges[i][0] = edge_buffer[i][0];
-        edges[i][1] = edge_buffer[i][1];
-        free(edge_buffer[i]);
+        graph.edges[i] = edge_buffer[i];
     }
     
     free(edge_buffer);
@@ -347,89 +292,115 @@ int read_edges(int**& edges, char* filename, int label_offset){
 /**
  * @brief Creates a list of neighbours given a set of edges
  * 
- * @param N will be number of vertices in the graph
- * @param degrees will belist of degrees for each vertex
- * @param neighbours will be list of neighbours for each vertex
- * @param edge_count number of edges
- * @param edges list of edges
+ * @param Graph a graph struct with a specified set of edges.
  */
-void make_graph(int &N, int* &degrees, int** &neighbours, int edge_count, int** edges){
-    N = -1;
-    for (int i = 0; i < edge_count; i++)
+void make_graph(Graph& graph){
+    graph.N = -1;
+    for (int i = 0; i < graph.M; i++)
     {
-        if(edges[i][0] > N){
-            N = edges[i][0];
+        if(graph.edges[i][0] > graph.N){
+            graph.N = graph.edges[i][0];
         }
-        if(edges[i][1] > N){
-            N = edges[i][1];
+        if(graph.edges[i][1] > graph.N){
+            graph.N = graph.edges[i][1];
         }
     }
-    N++;
+    graph.N++;
 
-    degrees = (int*) malloc(N*sizeof(int));
-    memset(degrees, 0, N*sizeof(int));
+    graph.degrees = (int*) malloc(graph.N*sizeof(int));
+    memset(graph.degrees, 0, graph.N*sizeof(int));
     
-    for (int i = 0; i < edge_count; i++)
+    for (int i = 0; i < graph.M; i++)
     {
-        int a = edges[i][0];
-        int b = edges[i][1];
+        int a = graph.edges[i][0];
+        int b = graph.edges[i][1];
 
-        degrees[a]++;
-        degrees[b]++;
+        graph.degrees[a]++;
+        graph.degrees[b]++;
     }
 
-    
-
-    neighbours = (int**) malloc(N*sizeof(int*));
-    for (int i = 0; i < N; i++)
+    graph.neighbours = (int**) malloc(graph.N*sizeof(int*));
+    for (int i = 0; i < graph.N; i++)
     {
-        neighbours[i] = (int*) malloc(degrees[i]*sizeof(int));
+        graph.neighbours[i] = (int*) malloc(graph.degrees[i]*sizeof(int));
     }
     
-    int counter[N] = {0};
-    for (int i = 0; i < edge_count; i++)
+    int counter[graph.N] = {0};
+    for (int i = 0; i < graph.M; i++)
     {
 
-        int a = edges[i][0];
-        int b = edges[i][1];
+        int a = graph.edges[i][0];
+        int b = graph.edges[i][1];
 
 
-        neighbours[a][counter[a]++] = b;
-        neighbours[b][counter[b]++] = a;
+        graph.neighbours[a][counter[a]++] = b;
+        graph.neighbours[b][counter[b]++] = a;
 
     }
     
 }
 
 /**
+ * @brief Initialise arrays for the ce update tracking
+ * 
+ * @param updater will have its arrays initialised
+ * @param graph data will be used to set array sizes
+ * @param params data will be used to set array sizes
+ */
+void init_updater(CEUpdater& updater, Graph graph, Params params){
+    updater.dombest = (int*) malloc(graph.N*sizeof(int));
+    updater.P = (double*) malloc(graph.N*sizeof(double));
+    updater.Pstar = (double*) malloc(graph.N*sizeof(double));
+
+    updater.results = (int*) malloc(params.iterations*sizeof(int));
+
+    updater.domsets = (int**) malloc(params.n*sizeof(int*));
+    updater.L =  (double*) malloc(params.n*sizeof(double));
+
+    for (int i = 0; i < params.n; i++)
+    {
+        updater.domsets[i] = (int*) malloc(graph.N*sizeof(int));
+    }
+
+    updater.best = graph.N;
+    updater.dombest = (int*) malloc(params.iterations*sizeof(int));
+    memset(updater.dombest, 0, params.iterations*sizeof(int));
+    
+    updater.best_domset = (int*) malloc(graph.N*sizeof(int));
+    memset(updater.dombest, 1, graph.N*sizeof(int));
+}
+
+/**
  * @brief Fills a given array with a dominating set
  * 
  * @param domset array that will contain a domset
- * @param N number of vertices for the domset
- * @param degrees degree of each vertex in the graph to be dominated
- * @param neighbours neighbours of each vertex in the graph to be dominated
- * @param P probabilities that each vertex will be selected for the domset
- * @return 1 if domset is possible, 0 if not
+ * @param graph the graph to make a domset for
+ * @param updater contains probability distribution for vertex selection
+ * @param params contains cross entropy parameters
  */
-int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, bool (*dom_func)(int*, int*&, int&, int, int, int*, int**)){
+int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
+    DomUpdater du;
+
+    set_domfunc(du, params);
     
+    int N = graph.N;
     memset(domset, 0, N*sizeof(int));
 
-    int* dommed = (int*) malloc(N*sizeof(int));
-    memset(dommed, 0, N*sizeof(int));
+    du.dommed = (int*) malloc(N*sizeof(int));
+    memset(du.dommed, 0, N*sizeof(int));
 
-    int domsum = 0;
+    du.domsum = 0;
 
-    double Ptemp[N];
-    memcpy(Ptemp, P, sizeof(*P)*N);
+    du.Ptemp = (double*) malloc(N*sizeof(double));
+    memcpy(du.Ptemp, updater.P, sizeof(*(updater.P))*N);
 
-    double sumP = 0;
+    du.sumP = 0;
     
 
     for (int i = 0; i < N; i++)
     {
-        Ptemp[i] += 1;
-        sumP += Ptemp[i];
+        du.Ptemp[i] += 1;
+        du.sumP += du.Ptemp[i];
     }
 
     int* links = (int*) malloc((2*N+1)*sizeof(int));
@@ -450,9 +421,9 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
 
     for (int i = 0; i < pre_calc; i++)
     {
-        choices[i] = weight_rand_acc(N, Ptemp, sumP, links);
-        sumP -= Ptemp[choices[i]];
-        Ptemp[choices[i]] = 0;
+        choices[i] = weight_rand_acc(N, du.Ptemp, du.sumP, links);
+        du.sumP -= du.Ptemp[choices[i]];
+        du.Ptemp[choices[i]] = 0;
     }
     
 
@@ -463,7 +434,8 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
     int ind;
     do {
         if(domcount == N){
-            free(dommed);
+            free(du.dommed);
+            free(du.Ptemp);
             //free(links);
             return 0;    
         }
@@ -473,13 +445,13 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
         if(choice_num >= pre_calc){
             for (int i = 0; i < pre_calc; i++)
             {
-                int indx = weight_rand_acc(N, Ptemp, sumP, links);
+                int indx = weight_rand_acc(N, du.Ptemp, du.sumP, links);
 
                 choices[i] = indx;
                 if(indx == -1) break;
 
-                sumP -= Ptemp[indx];
-                Ptemp[indx] = 0;
+                du.sumP -= du.Ptemp[indx];
+                du.Ptemp[indx] = 0;
             }
             choice_num = 0;
         }
@@ -490,14 +462,14 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
         domcount++;
         
 
-    } while(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours));
+    } while(!du.dom_func(du, ind, domset, graph));
 
 
     for (int i = 0; i < N; i++){
 
-        Ptemp[i] = 1.0 - P[i];
+        du.Ptemp[i] = 1.0 - updater.P[i];
 
-        if(Ptemp[i] < 0 ){
+        if(du.Ptemp[i] < 0 ){
             fprintf(stdout, "oh no \n");
             exit(0);
         }
@@ -505,11 +477,11 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
     }
 
 
-    sumP = 0;
+    du.sumP = 0;
 
     for (int i = 0; i < N; i++)
     {
-        sumP += Ptemp[i];
+        du.sumP += du.Ptemp[i];
     }
 
     links[N-1] = -1;
@@ -524,9 +496,9 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
 
     for (int i = 0; i < pre_calc; i++)
     {
-        choices[i] = weight_rand_acc(N, Ptemp, sumP, links);
-        sumP -= Ptemp[choices[i]];
-        Ptemp[choices[i]] = 0;
+        choices[i] = weight_rand_acc(N, du.Ptemp, du.sumP, links);
+        du.sumP -= du.Ptemp[choices[i]];
+        du.Ptemp[choices[i]] = 0;
     }
     
 
@@ -540,13 +512,13 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
         if(choice_num >= pre_calc){
             for (int i = 0; i < pre_calc; i++)
             {
-                int indx = weight_rand_acc(N, Ptemp, sumP, links);
+                int indx = weight_rand_acc(N, du.Ptemp, du.sumP, links);
 
                 choices[i] = indx;
                 if(indx == -1) break;
 
-                sumP -= Ptemp[indx];
-                Ptemp[indx] = 0;
+                du.sumP -= du.Ptemp[indx];
+                du.Ptemp[indx] = 0;
             }
             choice_num = 0;
         }
@@ -555,9 +527,9 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
 
         if(domset[ind]){
             domset[ind] = 0;
-            if(!(*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours)){
+            if(!du.dom_func(du, ind, domset, graph)){
                 domset[ind] = 1;
-                (*dom_func)(domset, dommed, domsum, ind, N, degrees, neighbours);
+                du.dom_func(du, ind, domset, graph);
             }
         }
 
@@ -565,7 +537,8 @@ int make_domset(int* &domset, int N, int* degrees, int** neighbours, double* P, 
 
     //fprintf(stdout, "here \n");
 
-    free(dommed);
+    free(du.dommed);
+    free(du.Ptemp);
     //free(links);
     return 1;
 
@@ -592,40 +565,37 @@ double calculate_score(int N, int* domset){
 /**
  * @brief Sorts both L and domsets based on the values in L
  * 
- * @param L unsorted list of scores. will be sorted
- * @param domsets unsorted list of dominating sets. will be sorted
- * @param n number of domsets
- * @param N number of vertices for the domsets
+ * @param updater will have its L and Domsets arrays sorted based on the values in L
  */
-void sort_domsets(double* &L, int** &domsets, int n, int N){
-    double to_sort[n][2];
-    for (int i = 0; i < n; i++)
+void sort_domsets(CEUpdater& updater, Graph graph, Params params){
+    double to_sort[params.n][2];
+    for (int i = 0; i < params.n; i++)
     {
         to_sort[i][0] = i;
-        to_sort[i][1] = L[i];
+        to_sort[i][1] = updater.L[i];
     }
     
-    qsort(to_sort, n, sizeof(*to_sort), compare_scores);
+    qsort(to_sort, params.n, sizeof(*to_sort), compare_scores);
     
-    double Ltemp[n];
-    int domset_temp[n][N];
+    double Ltemp[params.n];
+    int domset_temp[params.n][graph.N];
 
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < params.n; i++)
     {
-        Ltemp[i] = L[(int)to_sort[i][0]];
-        for (int j = 0; j < N; j++)
+        Ltemp[i] = updater.L[(int)to_sort[i][0]];
+        for (int j = 0; j < graph.N; j++)
         {
-            domset_temp[i][j] = domsets[(int)to_sort[i][0]][j];
+            domset_temp[i][j] = updater.domsets[(int)to_sort[i][0]][j];
         }
         
     }
 
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < params.n; i++)
     {
-        L[i] = Ltemp[i];
-        for (int j = 0; j < N; j++)
+        updater.L[i] = Ltemp[i];
+        for (int j = 0; j < graph.N; j++)
         {
-            domsets[i][j] = domset_temp[i][j];
+            updater.domsets[i][j] = domset_temp[i][j];
         }
         
     }
@@ -653,22 +623,19 @@ int compare_scores( const void* a, const void* b)
  * @brief Calculates the updated probability distribution for a given index.
  * 
  * @param i index of the vertex
- * @param m number of best domsets to choose from
- * @param L list of scores for each domset, sorted low to high
- * @param domsets list of domsets, sorted by score
- * @param delta pre-calculated value for scoring
- * @return the updated probability for the given index.
+ * @param updater contains the current cross entropy values
+ * @param params contains the cross entropy parameters
  */
-double calculate_Pstar(int i, int m, double* L, int** domsets, double delta){
+double calculate_Pstar(int i, CEUpdater updater, Params params){
 
     double sum_num = 0;
     double sum_den = 0;
     
-    for (int j = 0; j < m; j++)
+    for (int j = 0; j < params.m; j++)
     {
-        double val = pow(e, -L[j]/delta);
+        double val = pow(e, -updater.L[j]/updater.delta);
         sum_den += val;
-        if(domsets[j][i]){
+        if(updater.domsets[j][i]){
             sum_num += val;
         }
     }
@@ -677,35 +644,44 @@ double calculate_Pstar(int i, int m, double* L, int** domsets, double delta){
 }
 
 /**
+ * @brief Set the domfunc of the domupdater
+ * 
+ * @param updater updater whose domfunc to set
+ * @param params contains the dominating type paramater
+ */
+void set_domfunc(DomUpdater& updater, Params params){
+    updater.dom_func = &dominates;
+}
+
+
+/**
  * @brief Determine if the given dominating set dominates the graph defined by the list of neighbours.
  * 
  * @param domset The dominating set to check
- * @param N Number of vertices in the graph
- * @param degrees list containing the degree of each vertex
- * @param neighbours the neighbours of each vertex
- * @return true if the given set is dominating
- * @return false if the given set is not dominating
+ * @param added the vertex where a guard was changed
+ * @param du the domupdated used to keep track of domination info
+ * @param graph the graph to check domination over
  */
-bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* degrees, int** neighbours){
+bool dominates(DomUpdater& du, int added, int* domset, Graph graph){
 
     if(domset[added]){
-        if(!dommed[added]) domsum++;
-        dommed[added] = 1;
-        for (int j = 0; j < degrees[added]; j++)
+        if(!du.dommed[added]) du.domsum++;
+        du.dommed[added] = 1;
+        for (int j = 0; j < graph.degrees[added]; j++)
         {
-            if(!dommed[neighbours[added][j]]) 
+            if(!du.dommed[graph.neighbours[added][j]]) 
             {
-                domsum++;
-                dommed[neighbours[added][j]] = 1;
+                du.domsum++;
+                du.dommed[graph.neighbours[added][j]] = 1;
             }
         }
 
     } else {
 
         bool undommed = true;
-        for (int j = 0; j < degrees[added]; j++)
+        for (int j = 0; j < graph.degrees[added]; j++)
         {
-            int nbr = neighbours[added][j];
+            int nbr = graph.neighbours[added][j];
             if(domset[nbr]){
                 undommed = false;
                 break;
@@ -713,21 +689,21 @@ bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* de
         }
 
         if(undommed){
-            dommed[added] = 0;
-            domsum--;
+            du.dommed[added] = 0;
+            du.domsum--;
             //return false;
         } 
 
-        for (int i = 0; i < degrees[added]; i++)
+        for (int i = 0; i < graph.degrees[added]; i++)
         {
-            int neighbour = neighbours[added][i];
+            int neighbour = graph.neighbours[added][i];
 
             if(domset[neighbour]) continue;
 
             undommed = true;
-            for (int j = 0; j < degrees[neighbour]; j++)
+            for (int j = 0; j < graph.degrees[neighbour]; j++)
             {
-                int nbr = neighbours[neighbour][j];
+                int nbr = graph.neighbours[neighbour][j];
                 if(domset[nbr]){
                     undommed = false;
                     break;
@@ -735,14 +711,14 @@ bool dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* de
             }
 
             if(undommed){
-                dommed[neighbour] = 0;
-                domsum--;
+                du.dommed[neighbour] = 0;
+                du.domsum--;
                 //return false;
             } 
         }
     }
 
-    return domsum == N;
+    return du.domsum == graph.N;
 
 }
 
@@ -921,7 +897,7 @@ bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
 
 bool connected_dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* degrees, int** neighbours){
     
-    return dominates(domset, dommed, domsum, added, N, degrees, neighbours) && connected(domset, N, degrees, neighbours);
+    return false;//dominates(domset, dommed, domsum, added, N, degrees, neighbours) && connected(domset, N, degrees, neighbours);
 }
 
 
