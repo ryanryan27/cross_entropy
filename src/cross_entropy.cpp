@@ -621,6 +621,9 @@ void set_domfunc(DomUpdater& updater, Params params){
     if(!strcmp(params.dom_type, "t")){
         updater.dom_func = &total_dominates;
     }
+    else if(!strcmp(params.dom_type, "2")){
+        updater.dom_func = &two_dominates;
+    }
     else {
         updater.dom_func = &dominates;
     }
@@ -831,30 +834,25 @@ bool total_dominates(DomUpdater& du, int added, int* domset, Graph graph){
 
 
 /**
- * @brief Determine if the given domset is two-dominating
+ * @brief Determine if the given dominating set two-dominates the graph defined by the list of neighbours.
  * 
- * @param domset 
- * @param dommed 
- * @param domsum 
- * @param added 
- * @param N 
- * @param degrees 
- * @param neighbours 
- * @return true 
- * @return false 
+ * @param du the domupdated used to keep track of domination info
+ * @param added the vertex where a guard was changed
+ * @param domset The dominating set to check
+ * @param graph the graph to check domination over
  */
-bool two_dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* degrees, int** neighbours){
+bool two_dominates(DomUpdater& du, int added, int* domset, Graph graph){
 
     if(domset[added]){
-        if(dommed[added] < 2) domsum++;
-        dommed[added] = 2;
-        for (int j = 0; j < degrees[added]; j++)
+        if(du.dommed[added] < 2) du.domsum++;
+        du.dommed[added] = 2;
+        for (int j = 0; j < graph.degrees[added]; j++)
         {
-            if(!domset[neighbours[added][j]]) 
+            if(!domset[graph.neighbours[added][j]]) 
             {
-                dommed[neighbours[added][j]]++;
+                du.dommed[graph.neighbours[added][j]]++;
 
-                if(dommed[neighbours[added][j]] == 2) domsum++;
+                if(du.dommed[graph.neighbours[added][j]] == 2) du.domsum++;
                 
             }
         }
@@ -862,45 +860,45 @@ bool two_dominates(int* domset, int* &dommed, int &domsum, int added, int N, int
     } else {
 
         int domset_nbrs = 0;
-        for (int j = 0; j < degrees[added]; j++)
+        for (int j = 0; j < graph.degrees[added]; j++)
         {
-            int nbr = neighbours[added][j];
+            int nbr = graph.neighbours[added][j];
             if(domset[nbr]){
                 domset_nbrs++;
             }
         }
-        dommed[added] = domset_nbrs;
+        du.dommed[added] = domset_nbrs;
         if(domset_nbrs < 2){
-            domsum--;
+            du.domsum--;
             return false;
         } 
 
 
-        for (int i = 0; i < degrees[added]; i++)
+        for (int i = 0; i < graph.degrees[added]; i++)
         {
-            int neighbour = neighbours[added][i];
+            int neighbour = graph.neighbours[added][i];
 
             if(domset[neighbour]) continue;
 
             domset_nbrs = 0;
-            for (int j = 0; j < degrees[neighbour]; j++)
+            for (int j = 0; j < graph.degrees[neighbour]; j++)
             {
-                int nbr = neighbours[neighbour][j];
+                int nbr = graph.neighbours[neighbour][j];
                 if(domset[nbr]){
                     domset_nbrs++;
                 }
             }
             
-            dommed[neighbour] = domset_nbrs;
+            du.dommed[neighbour] = domset_nbrs;
              
             if(domset_nbrs < 2){
-                domsum--;
+                du.domsum--;
                 return false;
             } 
         }
     }
 
-    return domsum == N;
+    return du.domsum == graph.N;
 
 }
 
