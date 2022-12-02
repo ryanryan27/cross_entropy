@@ -84,6 +84,7 @@ void destruct_memory(DomUpdater, Graph, Params);
 bool dominates(DomUpdater&, int, int*, Graph);
 bool total_dominates(DomUpdater&, int, int*, Graph);
 bool two_dominates(DomUpdater&, int, int*, Graph);
+bool secure_dominates(DomUpdater&, int, int*, Graph);
 bool secure_dominates(int*, int, int*, int**);
 bool connected_dominates(DomUpdater&, int, int*, Graph);
 bool connected(int*, Graph);

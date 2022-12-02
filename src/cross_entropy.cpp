@@ -779,6 +779,9 @@ void set_domfunc(DomUpdater& updater, Params params){
     else if(!strcmp(params.dom_type, "c")){
         updater.dom_func = &connected_dominates;
     }
+    else if(!strcmp(params.dom_type, "s")){
+        updater.dom_func = &secure_dominates;
+    }
     else {
         updater.dom_func = &dominates;
     }
@@ -973,6 +976,88 @@ bool two_dominates(DomUpdater& du, int added, int* domset, Graph graph){
 
 }
 
+/**
+ * @brief Determine if the given dominating set two-dominates the graph defined by the list of neighbours.
+ * 
+ * @param du the domupdated used to keep track of domination info
+ * @param added the vertex where a guard was changed
+ * @param domset The dominating set to check
+ * @param graph the graph to check domination over
+ */
+bool secure_dominates(DomUpdater& du, int added, int* domset, Graph graph){
+
+    //if the vertex in question has been added to the domset
+    if(domset[added]){
+
+        //update which vertices are dominated by added
+        du.dommed[added]++;
+
+        for (int i = 0; i < graph.degrees[added]; i++)
+        {
+            du.dommed[graph.neighbours[added][i]]++;
+        }
+        
+
+        for (int i = 0; i < graph.degrees3[added]; i++)
+        {
+            int vertex_within_three = graph.three_aparts[added][i];
+
+            if(!domset[vertex_within_three]) continue;
+
+            for (int j = 0; j < graph.degrees[vertex_within_three]; j++)
+            {
+                int within_three_neighbour = graph.neighbours[vertex_within_three][j];
+
+                if(du.secure_dom_neighbours[vertex_within_three][j]) continue;
+
+                if(can_secure_dom(vertex_within_three, within_three_neighbour, domset, graph, du)){
+                    du.secure_dom_neighbours[vertex_within_three][j] = 1;
+                    du.secure_dommed[within_three_neighbour]++;
+                }
+            }
+        }
+    }
+
+    else{
+
+        //update which vertices are dominated by added
+        du.dommed[added]--;
+
+        for (int i = 0; i < graph.degrees[added]; i++)
+        {
+            du.dommed[graph.neighbours[added][i]]--;
+        }
+
+        for (int i = 0; i < graph.degrees3[added]; i++)
+        {
+            int vertex_within_three = graph.three_aparts[added][i];
+
+            if(vertex_within_three != added && !domset[vertex_within_three]) continue;
+
+            for (int j = 0; j < graph.degrees[vertex_within_three]; j++)
+            {
+                int within_three_neighbour = graph.neighbours[vertex_within_three][j];
+
+                if(!du.secure_dom_neighbours[vertex_within_three][j]) continue;
+
+                if(!can_secure_dom(vertex_within_three, within_three_neighbour, domset, graph, du)){
+                    du.secure_dom_neighbours[vertex_within_three][j] = 0;
+                    du.secure_dommed[within_three_neighbour]--;
+                }
+            }
+        }
+
+    }
+
+
+    for (int i = 0; i < graph.N; i++)
+    {
+        if(domset[i] == 0 && du.secure_dommed[i] == 0) return false;
+    }
+
+    return true;
+    
+}
 
 /**
  * @brief Determine if the given dominating set securely dominates the graph defined by the list of neighbours.
@@ -1227,7 +1312,7 @@ void generate_three_apart(Graph& graph){
                 int second_neighbour = graph.neighbours[neighbour][k];
 
                 //accounts for triangles and not adding self again
-                if(one_away[second_neighbour] || second_neighbour == i) continue;
+                if(one_away[second_neighbour] || two_away[second_neighbour] || second_neighbour == i) continue;
 
                 two_away[second_neighbour] = 1;
                 within_three_sum++;
@@ -1246,7 +1331,7 @@ void generate_three_apart(Graph& graph){
                 int third_neighbour = graph.neighbours[j][k];
 
                 //accounts for C4s
-                if(one_away[third_neighbour] || two_away[third_neighbour] || third_neighbour == i) continue;
+                if(one_away[third_neighbour] || two_away[third_neighbour] || three_away[third_neighbour] || third_neighbour == i) continue;
 
                 three_away[third_neighbour] = 1;
                 within_three_sum++;
@@ -1270,7 +1355,7 @@ void generate_three_apart(Graph& graph){
         }
         
         if(counter != within_three_sum){
-            fprintf(stdout, "three apart not match\n");
+            fprintf(stdout, "three apart not match: counter=%d, degree=%d\n", counter, within_three_sum);
             exit(1);
         }
         
