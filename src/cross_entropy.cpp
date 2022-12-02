@@ -4,8 +4,6 @@
 #include <time.h>
 #include "cross_entropy.h"
 
-static const double e = 2.71828;
-
 
 int main(int argc, char* argv[]){
 
@@ -24,7 +22,7 @@ int main(int argc, char* argv[]){
  * @param params set of parameters to be used for cross entropy
  */
 void run_cross_entropy(Params params){
-    clock_t start = clock();
+    
 
     //create and initialise the graph to be used for cross entropy, based on the file name specified in params
     Graph graph;
@@ -34,170 +32,132 @@ void run_cross_entropy(Params params){
     //create and initialise the data structures used for the cross entropy method
     CEUpdater ce;
     init_updater(ce, graph, params);
-    
+    ce.start = clock();
 
-    
+    //run through the cross entropy method for the specified number of seeds
     for (int i = 0; i < params.iterations; i++)
     {
+        //if no domset is possible, don't bother trying again
         if (!ce.domset_possible) break;
         
+        //set the random seed for this iteration
         srand(params.seed + i);
 
+        //re-initialise the cross entropy data structures
         for (int j = 0;j < graph.N;j++)
         {
-            ce.dombest[j] = 1;
+            ce.best_domset_this_iteration[j] = 1;
             ce.P[j] = 1.0/double(graph.N);
             ce.Pstar[j] = 0;
         }
 
-        int t = 0;
+        ce.loops_without_change = 0;
 
-        while(true){
-            
-            for (int j = 0; j < params.n; j++)
-            {
-                ce.domset_possible = make_domset(ce.domsets[j], graph, ce, params);
-                
-                if (!ce.domset_possible) break;
+        //start the cross entropy main loop
+        cross_entropy_main_loop(ce, graph, params);
 
-                ce.L[j] = calculate_score(graph.N, ce.domsets[j]);
-            }
-
-
-
-            if (!ce.domset_possible) break;
-
-            sort_domsets(ce, graph, params);
-            
-            if(calculate_score(graph.N, ce.dombest) > ce.L[0]){
-                memcpy(ce.dombest, ce.domsets[0], graph.N*sizeof(int));
-                t = 0;
-            }
-
-            if(t > params.r){
-                break;
-            }
-
-            if(params.timeout > 0 && ((double)(clock()-start)/CLOCKS_PER_SEC) > params.timeout){
-                ce.timed_out = true;
-                break;
-            }
-
-
-            ce.delta = -1*ce.L[0]/log(params.rho);
-
-            double psum = 0;
-            for (int j = 0; j < graph.N; j++)
-            {
-                ce.Pstar[j] = calculate_Pstar(j, ce, params);
-                psum += ce.Pstar[j];
-            }
-
-            for (int j = 0; j < graph.N; j++)
-            {
-                ce.P[j] = (1-params.alpha)*ce.P[j] + params.alpha*(ce.Pstar[j]/psum);
-            }
-
-            t++;
-        
-        }
-
-
+        //calculate the score of the best domset for this seed
         int sum = 0;
         for (int j = 0; j < graph.N; j++)
         {
-            sum += ce.dombest[j];
+            sum += ce.best_domset_this_iteration[j];
         }
 
         ce.results[i] = sum;
 
+        //keep track of the overall best dominating set for all seeds
         if(ce.results[i] <ce.best){
             ce.best = ce.results[i];
+            ce.best_seed = params.seed + i;
             for (int j = 0; j < graph.N; j++)
             {
-                ce.best_domset[j] = ce.dombest[j];
+                ce.best_domset_overall[j] = ce.best_domset_this_iteration[j];
             }
-            
         }
 
+        //stop checking different seeds if we have timed out
         if(ce.timed_out){
-            
             break;
         }
     }
 
+    //check how long the cross entropy method took, for all different seeds
+    ce.total_time  = (double)(clock() - ce.start)/CLOCKS_PER_SEC;
 
+    print_output(ce, params, graph);
 
-    double total_time  = (double)(clock() - start)/CLOCKS_PER_SEC;
-    if(ce.domset_possible){
-        if(params.output_types > 0){
-            fprintf(stdout, "Best is %d guards\n", ce.best);
-            fprintf(stdout, "Time taken: %0.3f \n", total_time);
-            fprintf(stdout, "Dominating set: \n");
-        }
-
-        for (int i  = 0; i < graph.N; i++)
-        {
-            if(params.output_types == 1){
-                fprintf(stdout, "%d ", ce.best_domset[i]);
-            } else if(params.output_types == 2 && ce.best_domset[i]){
-                fprintf(stdout, "%d ", i+params.label_offset);
-            } else if(params.output_types == 3){
-                fprintf(stdout, "%d    ", ce.best_domset[i]);
-            }
-            
-        }
-        if(params.output_types > 0){
-            fprintf(stdout, "\n");
-        }
-        if(params.output_types == 3){
-            for (int i  = 0; i < graph.N; i++)
-            {
-                fprintf(stdout, "%.2f ", ce.P[i]);
-            }
-        
-            fprintf(stdout, "\n");
-        }
-
-        if(params.output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, ce.best, total_time);
-        }
-    } else {
-        if(params.output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
-        } else {
-            fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
-        }
-    }
-
-    
-    for (int i = 0; i < graph.M; i++)
-    {
-        free(graph.edges[i]);
-    }
-    for(int i = 0; i < graph.N; i++)
-    {
-        free(graph.neighbours[i]);
-    }
-    for (int i = 0; i < params.n; i++)
-    {
-        free(ce.domsets[i]);
-    }
-
-    
-    free(ce.dombest);
-    free(ce.P);
-    free(ce.Pstar);
-    free(ce.L);
-    free(graph.degrees);
-    free(graph.edges);
-    free(graph.neighbours);
-    free(ce.domsets);
-    free(ce.results);
-    free(ce.best_domset);
-
+    destruct_memory(graph, ce, params);
 
 }
+
+/**
+ * @brief Run the cross entropy main method using the given graph, parameter set, and initialised updater
+ * 
+ * @param ce updater that will be updated throughout the loop
+ * @param graph graph to generate dominating sets for
+ * @param params set of parameters to use for cross entropy
+ */
+void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
+
+    while(true){
+            
+        //generate the domsets based on the current values in P
+        //if none are possible, break out of each loop rather then exiting, so that
+        //memory can still be freed safely
+        for (int j = 0; j < params.n; j++)
+        {
+            ce.domset_possible = make_domset(ce.domsets[j], graph, ce, params);
+            
+            if (!ce.domset_possible) break;
+
+            ce.L[j] = calculate_score(graph.N, ce.domsets[j]);
+        }
+
+        if (!ce.domset_possible) break;
+
+        //sort the dominating sets based on their calculated scores
+        sort_domsets(ce, graph, params);
+        
+        //if some domset has the best score so far, keep track of it
+        if(calculate_score(graph.N, ce.best_domset_this_iteration) > ce.L[0]){
+            memcpy(ce.best_domset_this_iteration, ce.domsets[0], graph.N*sizeof(int));
+            ce.loops_without_change = 0;
+        }
+
+        //if we have had sufficiently many loops without finding a better domset, stop
+        if(ce.loops_without_change > params.r){
+            break;
+        }
+
+        //if we have exceeded the specified time limit, exit
+        if(params.timeout > 0 && ((double)(clock()-ce.start)/CLOCKS_PER_SEC) > params.timeout){
+            ce.timed_out = true;
+            break;
+        }
+
+        //calculate the delta value for cross_entropy
+        ce.delta = -1*ce.L[0]/log(params.rho);
+
+        //calculate the Pstar value for the set of created domsets
+        double psum = 0;
+        for (int j = 0; j < graph.N; j++)
+        {
+            ce.Pstar[j] = calculate_Pstar(j, ce, params);
+            psum += ce.Pstar[j];
+        }
+
+        //update the values in P based on Pstar and the specified alpha value
+        for (int j = 0; j < graph.N; j++)
+        {
+            ce.P[j] = (1-params.alpha)*ce.P[j] + params.alpha*(ce.Pstar[j]/psum);
+        }
+
+        ce.loops_without_change++;
+    
+    }
+
+}
+
 
 /**
  * @brief Loads cross entropy parameters based on command line input
@@ -357,8 +317,9 @@ void make_graph(Graph& graph){
 void init_updater(CEUpdater& updater, Graph graph, Params params){
     updater.domset_possible = 1;
     updater.timed_out = false;
-    updater.dombest = (int*) malloc(graph.N*sizeof(int));
-    memset(updater.dombest, 1, graph.N*sizeof(int));
+    updater.best_seed = params.seed;
+    updater.best_domset_this_iteration = (int*) malloc(graph.N*sizeof(int));
+    memset(updater.best_domset_this_iteration, 1, graph.N*sizeof(int));
     updater.P = (double*) malloc(graph.N*sizeof(double));
     updater.Pstar = (double*) malloc(graph.N*sizeof(double));
 
@@ -373,8 +334,8 @@ void init_updater(CEUpdater& updater, Graph graph, Params params){
     }
 
     updater.best = graph.N;
-    updater.best_domset = (int*) malloc(graph.N*sizeof(int));
-    memset(updater.best_domset, 1, graph.N*sizeof(int));
+    updater.best_domset_overall = (int*) malloc(graph.N*sizeof(int));
+    memset(updater.best_domset_overall, 1, graph.N*sizeof(int));
 }
 
 /**
@@ -640,7 +601,7 @@ double calculate_Pstar(int i, CEUpdater updater, Params params){
     
     for (int j = 0; j < params.m; j++)
     {
-        double val = pow(e, -updater.L[j]/updater.delta);
+        double val = pow(exp(1), -updater.L[j]/updater.delta);
         sum_den += val;
         if(updater.domsets[j][i]){
             sum_num += val;
@@ -660,6 +621,90 @@ void set_domfunc(DomUpdater& updater, Params params){
     updater.dom_func = &dominates;
 }
 
+/**
+ * @brief Print the results of the cross entropy algorithm, based on the specified parameters
+ * 
+ * @param ce 
+ * @param params 
+ */
+void print_output(CEUpdater ce, Params params, Graph graph){
+    if(ce.domset_possible){
+        if(params.output_types > 0){
+            fprintf(stdout, "Best is %d guards\n", ce.best);
+            fprintf(stdout, "Time taken: %0.3f \n", ce.total_time);
+            fprintf(stdout, "Dominating set: \n");
+        }
+
+        for (int i  = 0; i < graph.N; i++)
+        {
+            if(params.output_types == 1){
+                fprintf(stdout, "%d ", ce.best_domset_overall[i]);
+            } else if(params.output_types == 2 && ce.best_domset_overall[i]){
+                fprintf(stdout, "%d ", i+params.label_offset);
+            } else if(params.output_types == 3){
+                fprintf(stdout, "%d    ", ce.best_domset_overall[i]);
+            }
+            
+        }
+        if(params.output_types > 0){
+            fprintf(stdout, "\n");
+        }
+        if(params.output_types == 3){
+            for (int i  = 0; i < graph.N; i++)
+            {
+                fprintf(stdout, "%.2f ", ce.P[i]);
+            }
+        
+            fprintf(stdout, "\n");
+        }
+
+        if(params.output_types == -1){
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
+        }
+    } else {
+        if(params.output_types == -1){
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
+        } else {
+            fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
+        }
+    }
+}
+
+/**
+ * @brief Free memory allocated for the graph and the cross entropy data
+ * 
+ * @param graph arrays will be freed
+ * @param ce arrays will be freed
+ * @param params number of domsets will be freed
+ */
+void destruct_memory(Graph graph, CEUpdater ce, Params params){
+
+    for (int i = 0; i < graph.M; i++)
+    {
+        free(graph.edges[i]);
+    }
+    for(int i = 0; i < graph.N; i++)
+    {
+        free(graph.neighbours[i]);
+    }
+    for (int i = 0; i < params.n; i++)
+    {
+        free(ce.domsets[i]);
+    }
+
+    
+    free(ce.best_domset_this_iteration);
+    free(ce.P);
+    free(ce.Pstar);
+    free(ce.L);
+    free(graph.degrees);
+    free(graph.edges);
+    free(graph.neighbours);
+    free(ce.domsets);
+    free(ce.results);
+    free(ce.best_domset_overall);
+
+}
 
 /**
  * @brief Determine if the given dominating set dominates the graph defined by the list of neighbours.

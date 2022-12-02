@@ -28,7 +28,7 @@ struct Graph {
 
 struct CEUpdater {
     double delta;
-    int* dombest;
+    int* best_domset_this_iteration;
     int** domsets;
     double* P;
     double* Pstar;
@@ -36,9 +36,13 @@ struct CEUpdater {
 
     int* results;
     int best;
-    int* best_domset;
+    int* best_domset_overall;
+    int best_seed;
     int domset_possible;
     bool timed_out;
+    int loops_without_change;
+    clock_t start;
+    double total_time;
 };
 
 struct DomUpdater {
@@ -53,7 +57,9 @@ struct DomUpdater {
     domfunc dom_func;
 };
 
+
 void run_cross_entropy(Params);
+void cross_entropy_main_loop(CEUpdater&, Graph, Params);
 void handle_params(Params&, int, char*[]);
 int read_edges(Graph&, Params);
 void make_graph(Graph&);
@@ -64,6 +70,8 @@ void sort_domsets(CEUpdater&, Graph, Params);
 int compare_scores(const void*, const void*);
 double calculate_Pstar(int, CEUpdater, Params);
 void set_domfunc(DomUpdater&, Params);
+void print_output(CEUpdater, Params, Graph);
+void destruct_memory(Graph, CEUpdater, Params);
 
 bool dominates(DomUpdater&, int, int*, Graph);
 bool total_dominates(int*, int*&, int&, int, int, int*, int**);
