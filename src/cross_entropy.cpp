@@ -618,7 +618,13 @@ double calculate_Pstar(int i, CEUpdater updater, Params params){
  * @param params contains the dominating type paramater
  */
 void set_domfunc(DomUpdater& updater, Params params){
-    updater.dom_func = &dominates;
+    if(!strcmp(params.dom_type, "t")){
+        updater.dom_func = &total_dominates;
+    }
+    else {
+        updater.dom_func = &dominates;
+    }
+    
 }
 
 /**
@@ -675,7 +681,7 @@ void print_output(CEUpdater ce, Params params, Graph graph){
  * 
  * @param graph arrays will be freed
  * @param ce arrays will be freed
- * @param params number of domsets will be freed
+ * @param params contains number of domsets to be freed
  */
 void destruct_memory(Graph graph, CEUpdater ce, Params params){
 
@@ -709,9 +715,9 @@ void destruct_memory(Graph graph, CEUpdater ce, Params params){
 /**
  * @brief Determine if the given dominating set dominates the graph defined by the list of neighbours.
  * 
- * @param domset The dominating set to check
- * @param added the vertex where a guard was changed
  * @param du the domupdated used to keep track of domination info
+ * @param added the vertex where a guard was changed
+ * @param domset The dominating set to check
  * @param graph the graph to check domination over
  */
 bool dominates(DomUpdater& du, int added, int* domset, Graph graph){
@@ -775,42 +781,36 @@ bool dominates(DomUpdater& du, int added, int* domset, Graph graph){
 }
 
 /**
- * @brief Determines if the given domset is total dominating. 
- * Maintains a list of domination status of each vertex.
+ * @brief Determine if the given dominating set total dominates the graph defined by the list of neighbours.
  * 
- * @param domset 
- * @param dommed 
- * @param domsum 
- * @param added 
- * @param N 
- * @param degrees 
- * @param neighbours 
- * @return true 
- * @return false 
+ * @param du the domupdated used to keep track of domination info
+ * @param added the vertex where a guard was changed
+ * @param domset The dominating set to check
+ * @param graph the graph to check domination over
  */
-bool total_dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* degrees, int** neighbours){
+bool total_dominates(DomUpdater& du, int added, int* domset, Graph graph){
 
     if(domset[added]){
 
-        for (int j = 0; j < degrees[added]; j++)
+        for (int j = 0; j < graph.degrees[added]; j++)
         {
-            if(!dommed[neighbours[added][j]]) 
+            if(!du.dommed[graph.neighbours[added][j]]) 
             {
-                domsum++;
-                dommed[neighbours[added][j]] = 1;
+                du.domsum++;
+                du.dommed[graph.neighbours[added][j]] = 1;
             }
         }
 
     } else {
 
-        for (int i = 0; i < degrees[added]; i++)
+        for (int i = 0; i < graph.degrees[added]; i++)
         {
-            int neighbour = neighbours[added][i];
+            int neighbour = graph.neighbours[added][i];
 
             bool undommed = true;
-            for (int j = 0; j < degrees[neighbour]; j++)
+            for (int j = 0; j < graph.degrees[neighbour]; j++)
             {
-                int nbr = neighbours[neighbour][j];
+                int nbr = graph.neighbours[neighbour][j];
                 if(domset[nbr]){
                     undommed = false;
                     break;
@@ -819,13 +819,13 @@ bool total_dominates(int* domset, int* &dommed, int &domsum, int added, int N, i
             }
 
             if(undommed){
-                dommed[neighbour] = 0;
-                domsum--;
+                du.dommed[neighbour] = 0;
+                du.domsum--;
             } 
         }
     }
 
-    return domsum == N;
+    return du.domsum == graph.N;
 
 }
 

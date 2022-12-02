@@ -74,7 +74,7 @@ void print_output(CEUpdater, Params, Graph);
 void destruct_memory(Graph, CEUpdater, Params);
 
 bool dominates(DomUpdater&, int, int*, Graph);
-bool total_dominates(int*, int*&, int&, int, int, int*, int**);
+bool total_dominates(DomUpdater&, int, int*, Graph);
 bool two_dominates(int*, int*&, int&, int, int, int*, int**);
 bool secure_dominates(int*, int, int*, int**);
 bool connected_dominates(int*, int*&, int&, int, int, int*, int**);
