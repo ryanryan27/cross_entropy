@@ -611,24 +611,7 @@ double calculate_Pstar(int i, CEUpdater updater, Params params){
     return sum_num/sum_den;
 }
 
-/**
- * @brief Set the domfunc of the domupdater
- * 
- * @param updater updater whose domfunc to set
- * @param params contains the dominating type paramater
- */
-void set_domfunc(DomUpdater& updater, Params params){
-    if(!strcmp(params.dom_type, "t")){
-        updater.dom_func = &total_dominates;
-    }
-    else if(!strcmp(params.dom_type, "2")){
-        updater.dom_func = &two_dominates;
-    }
-    else {
-        updater.dom_func = &dominates;
-    }
-    
-}
+
 
 /**
  * @brief Print the results of the cross entropy algorithm, based on the specified parameters
@@ -714,6 +697,30 @@ void destruct_memory(Graph graph, CEUpdater ce, Params params){
     free(ce.best_domset_overall);
 
 }
+
+
+/**
+ * @brief Set the domfunc of the domupdater
+ * 
+ * @param updater updater whose domfunc to set
+ * @param params contains the dominating type paramater
+ */
+void set_domfunc(DomUpdater& updater, Params params){
+    if(!strcmp(params.dom_type, "t")){
+        updater.dom_func = &total_dominates;
+    }
+    else if(!strcmp(params.dom_type, "2")){
+        updater.dom_func = &two_dominates;
+    }
+    else if(!strcmp(params.dom_type, "c")){
+        updater.dom_func = &connected_dominates;
+    }
+    else {
+        updater.dom_func = &dominates;
+    }
+    
+}
+
 
 /**
  * @brief Determine if the given dominating set dominates the graph defined by the list of neighbours.
@@ -945,29 +952,33 @@ bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
 }
 
 
-bool connected_dominates(int* domset, int* &dommed, int &domsum, int added, int N, int* degrees, int** neighbours){
+/**
+ * @brief Determine if the given dominating set connected-dominates the graph defined by the list of neighbours.
+ * 
+ * @param du the domupdated used to keep track of domination info
+ * @param added the vertex where a guard was changed
+ * @param domset The dominating set to check
+ * @param graph the graph to check domination over
+ */
+bool connected_dominates(DomUpdater& du, int added, int* domset, Graph graph){
     
-    return false;//dominates(domset, dommed, domsum, added, N, degrees, neighbours) && connected(domset, N, degrees, neighbours);
+    return dominates(du, added, domset, graph) && connected(domset, graph);
 }
 
 
 /**
- * @brief Determine if the given subset is connected.
+ * @brief Determine if the given subset is connected in the given graph;
  * 
- * @param subset The subset to check
- * @param N Number of vertices in the graph
- * @param degrees list containing the degree of each vertex
- * @param neighbours the neighbours of each vertex
- * @return true if the given set is connected
- * @return false if the given set is not connected
+ * @param subset The subset of vertices whose induced subgraph will be checked
+ * @param graph The graph to check connection under
  */
-bool connected(int* subset, int N, int* degrees, int** neighbours){
+bool connected(int* subset, Graph graph){
     
-    int reached[N] = {0};
+    int reached[graph.N] = {0};
 
     int start = -1;
 
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < graph.N; i++)
     {
         if(subset[i]){
             start = i;
@@ -978,16 +989,16 @@ bool connected(int* subset, int N, int* degrees, int** neighbours){
     
     if(start == -1) return false;
 
-    int queue[N] = {0};
+    int queue[graph.N] = {0};
     int qsize = 1;
     int qind = 0;
     queue[0] = start;
 
     while(qind < qsize){
         int curr = queue[qind];
-        for (int i = 0; i < degrees[curr]; i++)
+        for (int i = 0; i < graph.degrees[curr]; i++)
         {
-            int nb = neighbours[curr][i];
+            int nb = graph.neighbours[curr][i];
             if(subset[nb] && !reached[nb]){
                 reached[nb] = 1;
                 queue[qsize++] = nb;
@@ -999,7 +1010,7 @@ bool connected(int* subset, int N, int* degrees, int** neighbours){
         qind++;
     }
 
-    for (int i = 0; i < N; i++)
+    for (int i = 0; i < graph.N; i++)
     {
         if(subset[i] && !reached[i]){
             return false;

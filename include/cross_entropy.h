@@ -75,10 +75,10 @@ void destruct_memory(Graph, CEUpdater, Params);
 
 bool dominates(DomUpdater&, int, int*, Graph);
 bool total_dominates(DomUpdater&, int, int*, Graph);
-bool two_dominates(DomUpdater& du, int added, int* domset, Graph graph);
+bool two_dominates(DomUpdater&, int, int*, Graph);
 bool secure_dominates(int*, int, int*, int**);
-bool connected_dominates(int*, int*&, int&, int, int, int*, int**);
-bool connected(int*, int, int*, int**);
+bool connected_dominates(DomUpdater&, int, int*, Graph);;
+bool connected(int*, Graph);
 
 int weight_rand(int, double*, double);
 int weight_rand_acc(int, double*, double, int*&);
