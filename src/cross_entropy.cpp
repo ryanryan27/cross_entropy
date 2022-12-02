@@ -27,7 +27,7 @@ void run_cross_entropy(Params params){
     //create and initialise the graph to be used for cross entropy, based on the file name specified in params
     Graph graph;
     read_edges(graph, params);
-    make_graph(graph);
+    make_graph(graph, params);
 
     //create and initialise the data structures used for the cross entropy method
     CEUpdater ce;
@@ -261,7 +261,7 @@ int read_edges(Graph& graph, Params params){
  * 
  * @param Graph a graph struct with a specified set of edges.
  */
-void make_graph(Graph& graph){
+void make_graph(Graph& graph, Params params){
     graph.N = -1;
     for (int i = 0; i < graph.M; i++)
     {
@@ -304,6 +304,10 @@ void make_graph(Graph& graph){
         graph.neighbours[b][counter[b]++] = a;
 
     }
+
+    if(!strcmp(params.dom_type, "s")){
+        generate_three_apart(graph);
+    }
     
 }
 
@@ -339,20 +343,15 @@ void init_updater(CEUpdater& updater, Graph graph, Params params){
 }
 
 /**
- * @brief Fills a given array with a dominating set
+ * @brief Initialises arrays for the domupdater for the specified paramters and graph
  * 
- * @param domset array that will contain a domset
- * @param graph the graph to make a domset for
- * @param updater contains probability distribution for vertex selection
- * @param params contains cross entropy parameters
+ * @param du domupdater to initialised
+ * @param graph contains array size information
+ * @param params contains dom type
+ * @param updater contains initial P values
  */
-int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
-    DomUpdater du;
-
-    set_domfunc(du, params);
-    
+void init_dom_updater(DomUpdater& du, Graph graph, Params params, CEUpdater updater){
     int N = graph.N;
-    memset(domset, 0, N*sizeof(int));
 
     du.dommed = (int*) malloc(N*sizeof(int));
     memset(du.dommed, 0, N*sizeof(int));
@@ -371,6 +370,41 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
         du.sumP += du.Ptemp[i];
     }
 
+    if(!strcmp(params.dom_type, "s")){
+        du.secure_dommed = (int*)malloc(N*sizeof(int));
+        memset(du.secure_dommed, 0, N*sizeof(int));
+
+        du.secure_dom_neighbours = (int**)malloc(N*sizeof(int*));
+
+        for (int i = 0; i < N; i++)
+        {
+            int size = graph.degrees[i];
+            du.secure_dom_neighbours[i] = (int*)malloc(size*sizeof(int));
+            memset(du.secure_dom_neighbours[i], 0, size*sizeof(int));
+        }
+
+    }
+}
+
+/**
+ * @brief Fills a given array with a dominating set
+ * 
+ * @param domset array that will contain a domset
+ * @param graph the graph to make a domset for
+ * @param updater contains probability distribution for vertex selection
+ * @param params contains cross entropy parameters
+ */
+int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
+    DomUpdater du;
+
+    set_domfunc(du, params);
+    
+    int N = graph.N;
+    memset(domset, 0, N*sizeof(int));
+
+    init_dom_updater(du, graph, params, updater);
+
+    //set up linked list for slightly faster weightrand calculations
     int* links = (int*) malloc((2*N+1)*sizeof(int));
     links[N-1] = -1;
     links[N] = -1;
@@ -380,9 +414,8 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
         links[i] = i+1;
         links[N + i + 1] = i;
     }
-    
-    // fprintf(stdout, "adding \n");
 
+    //pre calculate some vertices to add
     int pre_calc = 1;//floor(sqrt(N/2));
 
     int choices[pre_calc];
@@ -402,8 +435,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
     int ind;
     do {
         if(domcount == N){
-            free(du.dommed);
-            free(du.Ptemp);
+            destruct_memory(du, graph, params);
             free(links);
             return 0;    
         }
@@ -433,6 +465,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
     } while(!du.dom_func(du, ind, domset, graph));
 
 
+    // set up probabilities for removing vertices
     for (int i = 0; i < N; i++){
 
         du.Ptemp[i] = 1.0 - updater.P[i];
@@ -505,8 +538,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
 
     //fprintf(stdout, "here \n");
 
-    free(du.dommed);
-    free(du.Ptemp);
+    destruct_memory(du, graph, params);
     free(links);
     return 1;
 
@@ -622,7 +654,7 @@ double calculate_Pstar(int i, CEUpdater updater, Params params){
 void print_output(CEUpdater ce, Params params, Graph graph){
     if(ce.domset_possible){
         if(params.output_types > 0){
-            fprintf(stdout, "Best is %d guards\n", ce.best);
+            fprintf(stdout, "Best is %d guards found at seed %d\n", ce.best, ce.best_seed);
             fprintf(stdout, "Time taken: %0.3f \n", ce.total_time);
             fprintf(stdout, "Dominating set: \n");
         }
@@ -696,6 +728,38 @@ void destruct_memory(Graph graph, CEUpdater ce, Params params){
     free(ce.results);
     free(ce.best_domset_overall);
 
+    if(!strcmp(params.dom_type, "s")){
+        for (int i = 0; i < graph.N; i++)
+        {
+            free(graph.three_aparts[i]);
+        }
+        free(graph.three_aparts);
+        free(graph.degrees3);
+        
+    }
+
+}
+
+/**
+ * @brief Free memory allocated for the domupdater
+ * 
+ * @param domupdater whose memory is to be freed
+ * @param graph contains lengths of arrays to be freed
+ * @param params contains dom type
+ */
+void destruct_memory(DomUpdater du, Graph graph, Params params){
+
+    free(du.dommed);
+    free(du.Ptemp);
+
+    if(!strcmp(params.dom_type, "s")){
+        for (int i = 0; i < graph.N; i++)
+        {
+            free(du.secure_dom_neighbours[i]);
+        }
+        free(du.secure_dom_neighbours);
+        free(du.secure_dommed);
+    }
 }
 
 
@@ -1079,5 +1143,139 @@ int weight_rand_acc(int N, double* P, double sumP, int*& links){
     fprintf(stdout, "bad times\n");
 
     return -1;
+
+}
+
+
+/**
+ * @brief Checks if a guard at a vertex can securely dominate the target vertex
+ * for a given domset, graph and domupdater
+ * 
+ * @param guard vertex to check
+ * @param target target vertex to check
+ * @param domset domset used to check
+ * @param graph graph to check for
+ * @param du updater containing information about the current status of other vertices relevant to secure domiantion
+ * @return true if target can be securely dominated by guard
+ * @return false otherwise
+ */
+bool can_secure_dom(int guard, int target, int* domset, Graph graph, DomUpdater du){
+    if(!domset[guard]) return false;
+
+    for (int i = 0; i < graph.degrees[guard]; i++)
+    {
+        int guard_neighbour = graph.neighbours[guard][i];
+
+        if(guard_neighbour == target) continue;
+
+        if(domset[guard_neighbour]) continue;
+
+        if(du.dommed[guard_neighbour] > 1) continue;
+
+        bool is_neighbour = false;
+        for (int j = 0; j < graph.degrees[target]; j++)
+        {
+            if(guard_neighbour == graph.neighbours[target][j]) is_neighbour = true;
+        }
+        
+        if(is_neighbour) continue;
+
+        return false;
+    }
+
+    return true;
+    
+}
+
+
+/**
+ * @brief creates an array of arrays that specify which vertices are within 3 edges of a given vertex
+ *  this includes the original vertex
+ * 
+ * @param graph graph to create the array for
+ */
+void generate_three_apart(Graph& graph){
+    int N = graph.N;
+
+    graph.degrees3 = (int*)malloc(N*sizeof(int));
+    graph.three_aparts = (int**)malloc(N*sizeof(int*));
+
+    int one_away[N];
+    int two_away[N];
+    int three_away[N];
+
+    for (int i = 0; i < N; i++)
+    {
+        memset(one_away, 0, N*sizeof(int));
+        memset(two_away, 0, N*sizeof(int));
+        memset(three_away, 0, N*sizeof(int));
+
+        int within_three_sum = 1;
+
+        //get which vertices are one away
+        for (int j = 0; j < graph.degrees[i]; j++){
+            one_away[graph.neighbours[i][j]] = 1;
+            within_three_sum++;
+        }
+
+        //get which vertice are exactly two away
+        for (int j = 0; j < graph.degrees[i]; j++)
+        {
+            int neighbour = graph.neighbours[i][j];
+            for (int k = 0; k < graph.degrees[neighbour]; k++)
+            {
+                int second_neighbour = graph.neighbours[neighbour][k];
+
+                //accounts for triangles and not adding self again
+                if(one_away[second_neighbour] || second_neighbour == i) continue;
+
+                two_away[second_neighbour] = 1;
+                within_three_sum++;
+
+            }
+            
+        }
+
+        //get vertices which are exactly three away
+        for (int j = 0; j < N; j++)
+        {
+            if(two_away[j] == 0) continue;
+
+            for (int k = 0; k < graph.degrees[j]; k++)
+            {
+                int third_neighbour = graph.neighbours[j][k];
+
+                //accounts for C4s
+                if(one_away[third_neighbour] || two_away[third_neighbour] || third_neighbour == i) continue;
+
+                three_away[third_neighbour] = 1;
+                within_three_sum++;
+
+            }
+            
+        }
+
+        graph.degrees3[i] = within_three_sum;
+
+        graph.three_aparts[i] = (int*) malloc(within_three_sum*sizeof(int));
+
+        int counter = 0;
+
+        for (int j = 0; j < N; j++)
+        {
+            if(j == i || one_away[j] || two_away[j] || three_away[j]){
+                graph.three_aparts[i][counter] = j;
+                counter++;
+            }
+        }
+        
+        if(counter != within_three_sum){
+            fprintf(stdout, "three apart not match\n");
+            exit(1);
+        }
+        
+        
+    }
+    
 
 }
