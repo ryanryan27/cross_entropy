@@ -209,25 +209,20 @@ int main(int argc, char* argv[]){
     }
 
     
-    fprintf(stdout, "start freeing!\n");
-    fprintf(stdout, "%d edges\n", graph.M);
     for (int i = 0; i < graph.M; i++)
     {
-        fprintf(stdout, "%d %d\n", graph.edges[i][0], graph.edges[i][1]);
         free(graph.edges[i]);
     }
-    fprintf(stdout, "neighbours\n");
     for(int i = 0; i < graph.N; i++)
     {
         free(graph.neighbours[i]);
     }
-    fprintf(stdout, "domsets\n");
     for (int i = 0; i < params.n; i++)
     {
         free(ce.domsets[i]);
     }
 
-    fprintf(stdout, "dombest\n");
+    
     free(ce.dombest);
     free(ce.P);
     free(ce.Pstar);
@@ -239,7 +234,6 @@ int main(int argc, char* argv[]){
     free(ce.results);
     free(ce.best_domset);
 
-    fprintf(stdout, "finished freeing!\n");
 
     return 0;
 }
@@ -349,6 +343,7 @@ void make_graph(Graph& graph){
  */
 void init_updater(CEUpdater& updater, Graph graph, Params params){
     updater.dombest = (int*) malloc(graph.N*sizeof(int));
+    memset(updater.dombest, 1, graph.N*sizeof(int));
     updater.P = (double*) malloc(graph.N*sizeof(double));
     updater.Pstar = (double*) malloc(graph.N*sizeof(double));
 
@@ -363,11 +358,8 @@ void init_updater(CEUpdater& updater, Graph graph, Params params){
     }
 
     updater.best = graph.N;
-    updater.dombest = (int*) malloc(params.iterations*sizeof(int));
-    memset(updater.dombest, 0, params.iterations*sizeof(int));
-    
     updater.best_domset = (int*) malloc(graph.N*sizeof(int));
-    memset(updater.dombest, 1, graph.N*sizeof(int));
+    memset(updater.best_domset, 1, graph.N*sizeof(int));
 }
 
 /**
@@ -392,7 +384,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
     du.domsum = 0;
 
     du.Ptemp = (double*) malloc(N*sizeof(double));
-    memcpy(du.Ptemp, updater.P, sizeof(*(updater.P))*N);
+    memcpy(du.Ptemp, updater.P, N*sizeof(double));
 
     du.sumP = 0;
     
@@ -436,7 +428,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
         if(domcount == N){
             free(du.dommed);
             free(du.Ptemp);
-            //free(links);
+            free(links);
             return 0;    
         }
 
@@ -539,7 +531,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
 
     free(du.dommed);
     free(du.Ptemp);
-    //free(links);
+    free(links);
     return 1;
 
 }
@@ -991,17 +983,17 @@ int weight_rand_acc(int N, double* P, double sumP, int*& links){
 
     int ind  = links[2*N];
     for(;;){
-        // fprintf(stdout, "ind is: %d\n", ind);
+        //fprintf(stdout, "ind is: %d\n", ind);
         sum += P[ind];
-
         // fprintf(stdout, "val is: %.10f\n", val);
 
         if(val <= sum){
             //  fprintf(stdout, "selected: %d\n", ind);
             int prev = links[ind+N];
             int next = links[ind];
-
-            links[prev] = next;
+            if(prev >= 0){
+                links[prev] = next;
+            }
             links[next+N] = prev;
 
             if(ind == links[2*N]){
@@ -1009,9 +1001,7 @@ int weight_rand_acc(int N, double* P, double sumP, int*& links){
             }
             return ind;
         }
-
         ind = links[ind];
-        
 
     }
     
