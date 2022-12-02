@@ -13,6 +13,7 @@ struct Params {
     int seed = 0;
     int iterations = 1;
     int output_types = 0;
+    double timeout = -1;
 
 };
 
@@ -36,6 +37,8 @@ struct CEUpdater {
     int* results;
     int best;
     int* best_domset;
+    int domset_possible;
+    bool timed_out;
 };
 
 struct DomUpdater {
@@ -50,7 +53,8 @@ struct DomUpdater {
     domfunc dom_func;
 };
 
-
+void run_cross_entropy(Params);
+void handle_params(Params&, int, char*[]);
 int read_edges(Graph&, Params);
 void make_graph(Graph&);
 void init_updater(CEUpdater&, Graph, Params);

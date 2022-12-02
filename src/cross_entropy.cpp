@@ -9,74 +9,37 @@ static const double e = 2.71828;
 
 int main(int argc, char* argv[]){
 
-
-    Graph graph;
-
     Params params;
+    handle_params(params, argc, argv);
 
-    CEUpdater ce;
+    run_cross_entropy(params);
 
-    double timeout = -1;
-    
-    bool has_file = 0;
+    return 0;
+}
 
-    for (int i = 0; i < argc; i++)
-    {
-        char* s = argv[i];
-        
-        if(!strcmp(s, "-f")){
-            params.filename = argv[++i];
-            has_file = 1;
 
-            if(i + 1 < argc && argv[i+1][0] != '-'){
-                params.label_offset = atoi(argv[++i]);
-            }
-        } else if(!strcmp(s, "-n")){
-            params.n = atoi(argv[++i]);
-        } else if(!strcmp(s, "-m")){
-            params.m = atoi(argv[++i]);
-        } else if(!strcmp(s, "-r")){
-            params.r = atoi(argv[++i]);
-        } else if(!strcmp(s, "-R")){
-            params.rho = atof(argv[++i]);
-        } else if(!strcmp(s, "-a")){
-            params.alpha = atof(argv[++i]);
-        } else if(!strcmp(s, "-s")){
-            params.seed = atof(argv[++i]);
-        } else if(!strcmp(s, "-t")){
-            timeout = atof(argv[++i]);
-        } else if(!strcmp(s, "-o")){
-            params.output_types = atof(argv[++i]);
-        } else if(!strcmp(s, "-i")){
-            params.iterations = atoi(argv[++i]);
-        } else if(!strcmp(s, "-d")){
-            params.dom_type = argv[++i];
-        }
-    }
-    
-    if(!has_file){
-        fprintf(stdout, "Please provide a edge list file with -f \"filename\"");
-        return 1;
-    }
-
+/**
+ * @brief Runs the main cross entropy loop with the given param set
+ * 
+ * @param params set of parameters to be used for cross entropy
+ */
+void run_cross_entropy(Params params){
     clock_t start = clock();
 
-    graph.M = read_edges(graph, params);
-
-
+    //create and initialise the graph to be used for cross entropy, based on the file name specified in params
+    Graph graph;
+    read_edges(graph, params);
     make_graph(graph);
 
-
+    //create and initialise the data structures used for the cross entropy method
+    CEUpdater ce;
     init_updater(ce, graph, params);
     
-    bool timed_out = false;
-    int its_completed = 0;
-    int domset_possible = 1;
 
     
     for (int i = 0; i < params.iterations; i++)
     {
-        if (!domset_possible) break;
+        if (!ce.domset_possible) break;
         
         srand(params.seed + i);
 
@@ -93,16 +56,16 @@ int main(int argc, char* argv[]){
             
             for (int j = 0; j < params.n; j++)
             {
-                domset_possible = make_domset(ce.domsets[j], graph, ce, params);
+                ce.domset_possible = make_domset(ce.domsets[j], graph, ce, params);
                 
-                if (!domset_possible) break;
+                if (!ce.domset_possible) break;
 
                 ce.L[j] = calculate_score(graph.N, ce.domsets[j]);
             }
 
 
 
-            if (!domset_possible) break;
+            if (!ce.domset_possible) break;
 
             sort_domsets(ce, graph, params);
             
@@ -115,8 +78,8 @@ int main(int argc, char* argv[]){
                 break;
             }
 
-            if(timeout > 0 && ((double)(clock()-start)/CLOCKS_PER_SEC) > timeout){
-                timed_out = true;
+            if(params.timeout > 0 && ((double)(clock()-start)/CLOCKS_PER_SEC) > params.timeout){
+                ce.timed_out = true;
                 break;
             }
 
@@ -157,8 +120,7 @@ int main(int argc, char* argv[]){
             
         }
 
-        its_completed = i+1;
-        if(timed_out){
+        if(ce.timed_out){
             
             break;
         }
@@ -167,7 +129,7 @@ int main(int argc, char* argv[]){
 
 
     double total_time  = (double)(clock() - start)/CLOCKS_PER_SEC;
-    if(domset_possible){
+    if(ce.domset_possible){
         if(params.output_types > 0){
             fprintf(stdout, "Best is %d guards\n", ce.best);
             fprintf(stdout, "Time taken: %0.3f \n", total_time);
@@ -235,7 +197,56 @@ int main(int argc, char* argv[]){
     free(ce.best_domset);
 
 
-    return 0;
+}
+
+/**
+ * @brief Loads cross entropy parameters based on command line input
+ * 
+ * @param params paramter struct to be modified
+ * @param argc number of specified arguments
+ * @param argv character array containing cl arguments
+ */
+void handle_params(Params& params, int argc, char* argv[]){
+        bool has_file = false;
+
+    for (int i = 0; i < argc; i++)
+    {
+        char* s = argv[i];
+        
+        if(!strcmp(s, "-f")){
+            params.filename = argv[++i];
+            has_file = true;
+
+            if(i + 1 < argc && argv[i+1][0] != '-'){
+                params.label_offset = atoi(argv[++i]);
+            }
+        } else if(!strcmp(s, "-n")){
+            params.n = atoi(argv[++i]);
+        } else if(!strcmp(s, "-m")){
+            params.m = atoi(argv[++i]);
+        } else if(!strcmp(s, "-r")){
+            params.r = atoi(argv[++i]);
+        } else if(!strcmp(s, "-R")){
+            params.rho = atof(argv[++i]);
+        } else if(!strcmp(s, "-a")){
+            params.alpha = atof(argv[++i]);
+        } else if(!strcmp(s, "-s")){
+            params.seed = atof(argv[++i]);
+        } else if(!strcmp(s, "-t")){
+            params.timeout = atof(argv[++i]);
+        } else if(!strcmp(s, "-o")){
+            params.output_types = atof(argv[++i]);
+        } else if(!strcmp(s, "-i")){
+            params.iterations = atoi(argv[++i]);
+        } else if(!strcmp(s, "-d")){
+            params.dom_type = argv[++i];
+        }
+    }
+    
+    if(!has_file){
+        fprintf(stdout, "Please provide a edge list file with -f \"filename\"");
+        exit(1);
+    }
 }
 
 /**
@@ -276,6 +287,8 @@ int read_edges(Graph& graph, Params params){
         graph.edges[i] = edge_buffer[i];
     }
     
+    graph.M = count;
+
     free(edge_buffer);
 
     
@@ -342,6 +355,8 @@ void make_graph(Graph& graph){
  * @param params data will be used to set array sizes
  */
 void init_updater(CEUpdater& updater, Graph graph, Params params){
+    updater.domset_possible = 1;
+    updater.timed_out = false;
     updater.dombest = (int*) malloc(graph.N*sizeof(int));
     memset(updater.dombest, 1, graph.N*sizeof(int));
     updater.P = (double*) malloc(graph.N*sizeof(double));
