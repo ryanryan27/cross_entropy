@@ -7,12 +7,74 @@
 
 int main(int argc, char* argv[]){
 
+    if(argc == 1){
+        print_instructions();
+        return 0;
+    }
     Params params;
     handle_params(params, argc, argv);
 
     run_cross_entropy(params);
 
     return 0;
+}
+
+/**
+ * @brief Prints instructions on how to run the program from command line
+ * 
+ */
+void print_instructions(){
+    fprintf(stdout,
+    "   _____                                _                         \n"
+    "  / ____|                              | |                        \n"
+    " | |     _ __ ___  ___ ___    ___ _ __ | |_ _ __ ___  _ __  _   _ \n"
+    " | |    | '__/ _ \\/ __/ __|  / _ \\ '_ \\| __| '__/ _ \\| '_ \\| | | |\n"
+    " | |____| | | (_) \\__ \\__ \\ |  __/ | | | |_| | | (_) | |_) | |_| |\n"
+    "  \\_____|_|  \\___/|___/___/  \\___|_| |_|\\__|_|  \\___/| .__/ \\__, |\n"
+    "                                                     | |     __/ |\n"
+    "                                                     |_|    |___/ \n\n\n");
+
+    fprintf(stdout,
+    "Runs the cross entropy method on a specified graph to generate one of a few\n"
+    "different variants of dominating set (domination, total domination, two-\n"
+    "domination, connected domination, or secure domination\n\n");
+    fprintf(stdout,
+    "This program allows the following options (run the function with no additional\n"
+    "arguments to get a help menu):\n\n"
+    "  -f <filename> <start_index> ---> specify the name of a file containing an\n"
+    "     (required)                    edge list with one edge per line, where\n"
+    "                                   the lowest index is <start_index>\n\n"
+    "  -d <char>                   ---> type of dominating set to be generated:\n"
+    "     (optional, default d)           d: domination\n"
+    "                                     t: total domination\n"
+    "                                     2: two-domination\n"
+    "                                     c: connected domination\n"
+    "                                     s: secure domination\n\n"
+    "  -n <int>                    ---> the number of dominating sets  to generate\n"
+    "     (optional, default 50)        for each step of the main loop\n\n"
+    "  -m <int>                    ---> the number of dominating sets to use to\n"
+    "     (optional, default 10)        update the probability distribution\n\n"
+    "  -r <int>                    ---> the number of iterations to run without\n"
+    "     (optional, default 5)         improvement before the program finishes\n\n"
+    "  -R <double>                 ---> number close to zero used to avoid divide\n"
+    "     (optional, default 0.1)       by zero errors in score calculations\n\n"
+    "  -a <double>                 ---> value between 0 and 1 that specifies how\n"
+    "     (optional, default 0.5)       much probability distributions change\n"
+    "                                   between iterations\n\n"
+    "  -s <int>                    ---> seed for the random function that is\n"
+    "     (optional, default 0)         used to select vertices based on the\n"
+    "                                   probability distribution\n\n"
+    "  -t <double>                 ---> upper limit in runtime in seconds\n"
+    "     (optional, default -1)        set to -1 for no limit\n\n"
+    "  -o <int>                    ---> output format:\n"
+    "     (optional, default 2)          -1: csv format\n"
+    "                                     0: no output\n"
+    "                                     1: shows domset as a 0-1 vector\n"
+    "                                     2: shows domset as list of indices\n"
+    "                                     3: same as 1 with final P values below\n\n"
+    " -i <int>                     ---> number of seeds to attempt. reports\n"
+    "    (optional, default 1)          on the best domset found\n\n"
+    );
 }
 
 

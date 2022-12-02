@@ -12,7 +12,7 @@ struct Params {
     int label_offset = 1;
     int seed = 0;
     int iterations = 1;
-    int output_types = 0;
+    int output_types = 2;
     double timeout = -1;
 
 };
@@ -63,7 +63,7 @@ struct DomUpdater {
     domfunc dom_func;
 };
 
-
+void print_instructions();
 void run_cross_entropy(Params);
 void cross_entropy_main_loop(CEUpdater&, Graph, Params);
 void handle_params(Params&, int, char*[]);
