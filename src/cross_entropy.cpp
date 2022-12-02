@@ -826,7 +826,6 @@ bool dominates(DomUpdater& du, int added, int* domset, Graph graph){
         if(undommed){
             du.dommed[added] = 0;
             du.domsum--;
-            //return false;
         } 
 
         for (int i = 0; i < graph.degrees[added]; i++)
@@ -848,7 +847,6 @@ bool dominates(DomUpdater& du, int added, int* domset, Graph graph){
             if(undommed){
                 du.dommed[neighbour] = 0;
                 du.domsum--;
-                //return false;
             } 
         }
     }
@@ -997,19 +995,23 @@ bool secure_dominates(DomUpdater& du, int added, int* domset, Graph graph){
             du.dommed[graph.neighbours[added][i]]++;
         }
         
-
+        //check which vertices within three edges of the new guard are now dominated
         for (int i = 0; i < graph.degrees3[added]; i++)
         {
             int vertex_within_three = graph.three_aparts[added][i];
 
+            //only consider guards within 3
             if(!domset[vertex_within_three]) continue;
 
+            //check the neighbours of these guards
             for (int j = 0; j < graph.degrees[vertex_within_three]; j++)
             {
                 int within_three_neighbour = graph.neighbours[vertex_within_three][j];
 
+                //if was secure dominated before, it still will be
                 if(du.secure_dom_neighbours[vertex_within_three][j]) continue;
 
+                //if it is now dominated, update necessary info
                 if(can_secure_dom(vertex_within_three, within_three_neighbour, domset, graph, du)){
                     du.secure_dom_neighbours[vertex_within_three][j] = 1;
                     du.secure_dommed[within_three_neighbour]++;
@@ -1017,7 +1019,7 @@ bool secure_dominates(DomUpdater& du, int added, int* domset, Graph graph){
             }
         }
     }
-
+    //if the vertex in question has been removed from the domset...
     else{
 
         //update which vertices are dominated by added
@@ -1028,18 +1030,23 @@ bool secure_dominates(DomUpdater& du, int added, int* domset, Graph graph){
             du.dommed[graph.neighbours[added][i]]--;
         }
 
+        //check which of the vertices within 3 edges are still secure dominated
         for (int i = 0; i < graph.degrees3[added]; i++)
         {
             int vertex_within_three = graph.three_aparts[added][i];
 
+            //only interested in guards and the vertex that was removed
             if(vertex_within_three != added && !domset[vertex_within_three]) continue;
 
+            //check the neighbours of the guards or removed guard
             for (int j = 0; j < graph.degrees[vertex_within_three]; j++)
             {
                 int within_three_neighbour = graph.neighbours[vertex_within_three][j];
 
+                //if wasnt secure dommed before, still wont be
                 if(!du.secure_dom_neighbours[vertex_within_three][j]) continue;
 
+                //if it is no longer secure dommed, update necessary info
                 if(!can_secure_dom(vertex_within_three, within_three_neighbour, domset, graph, du)){
                     du.secure_dom_neighbours[vertex_within_three][j] = 0;
                     du.secure_dommed[within_three_neighbour]--;
@@ -1049,7 +1056,7 @@ bool secure_dominates(DomUpdater& du, int added, int* domset, Graph graph){
 
     }
 
-
+    //check that everything is either secure dominated by a neighbour or by itself
     for (int i = 0; i < graph.N; i++)
     {
         if(domset[i] == 0 && du.secure_dommed[i] == 0) return false;
@@ -1057,47 +1064,6 @@ bool secure_dominates(DomUpdater& du, int added, int* domset, Graph graph){
 
     return true;
     
-}
-
-/**
- * @brief Determine if the given dominating set securely dominates the graph defined by the list of neighbours.
- * 
- * @param domset The dominating set to check
- * @param N Number of vertices in the graph
- * @param degrees list containing the degree of each vertex
- * @param neighbours the neighbours of each vertex
- * @return true if the given set is secure dominating
- * @return false if the given set is not secure dominating
- */
-bool secure_dominates(int* domset, int N, int* degrees, int** neighbours){
-
-    for (int i = 0; i < N; i++)
-    {
-        if (domset[i] == 0)
-        {
-            bool dommed = false;
-            for (int j = 0; j < degrees[i]; j++)
-            {
-                int nb = neighbours[i][j];
-
-                if(domset[nb]){
-                    domset[i]++;
-                    domset[nb]--;
-                    dommed = false;
-                    domset[i]--;
-                    domset[nb]++;
-
-                    if(dommed){
-                        continue;
-                    }
-                }
-            }
-            if(!dommed){
-                return false;
-            }
-        }
-    }
-    return true;
 }
 
 
@@ -1123,6 +1089,7 @@ bool connected_dominates(DomUpdater& du, int added, int* domset, Graph graph){
  */
 bool connected(int* subset, Graph graph){
     
+    //just do a breadth first search only considering vertices from the subset
     int reached[graph.N] = {0};
 
     int start = -1;
@@ -1170,43 +1137,29 @@ bool connected(int* subset, Graph graph){
 }
 
 /**
- * @brief Given a distribution P of length N, randomly select an index based on the distribution.
+ * @brief Select an index between 0 and N based on the relative weight of values in P with that index.
  * 
- * @param N number of option in P
- * @param P some distribution of values
- * @return index of the selected value
+ * @param N max number of the index
+ * @param P list of weights for each index, higher means more likely to be chosen
+ * @param sumP sum of all elements in P
+ * @param links linked list that keeps track of which elements of P have already been selected
+ * @return the chosen index between 0 and N
  */
-int weight_rand(int N, double* P, double sumP){
-
-    
-    double val = (sumP-1e-6)*(rand()/double(RAND_MAX));
-
-    for (int i = 0; i < N; i++)
-    {
-        if(val < P[i]){
-            
-            return i;
-        }
-        val -= P[i];
-        
-    }
-
-    return 0;
-}
-
-
 int weight_rand_acc(int N, double* P, double sumP, int*& links){
+
+    //generate a random value between 0 and the sum of P
     double val = (sumP)*(rand()/double(RAND_MAX));
+    
+    //offset for very small values
     double sum = 1e-6;
 
+    //iterate through the linked list until the cumulative values of P exceed the randomly chosen value
     int ind  = links[2*N];
     for(;;){
-        //fprintf(stdout, "ind is: %d\n", ind);
         sum += P[ind];
-        // fprintf(stdout, "val is: %.10f\n", val);
 
+        //once we've chosen one, update the linked list to skip that index next time
         if(val <= sum){
-            //  fprintf(stdout, "selected: %d\n", ind);
             int prev = links[ind+N];
             int next = links[ind];
             if(prev >= 0){
@@ -1222,12 +1175,6 @@ int weight_rand_acc(int N, double* P, double sumP, int*& links){
         ind = links[ind];
 
     }
-    
-    
-    fprintf(stdout, "val is: %.10f, sum is %.10f\n", val, sum);
-    fprintf(stdout, "bad times\n");
-
-    return -1;
 
 }
 
