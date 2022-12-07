@@ -261,7 +261,26 @@ void handle_params(Params& params, int argc, char* argv[]){
         } else if(!strcmp(s, "-i")){
             params.iterations = atoi(argv[++i]);
         } else if(!strcmp(s, "-d")){
-            params.dom_type = argv[++i];
+
+            char* dt = argv[++i];
+
+            params.dom_type_str = dt;
+
+            if(!strcmp(dt, "d")){
+                params.dom_type = domination;
+            }
+            else if(!strcmp(dt, "t")){
+                params.dom_type = total;
+            }
+            else if(!strcmp(dt, "2")){
+                params.dom_type = two;
+            }
+            else if(!strcmp(dt, "s")){
+                params.dom_type = secure;
+            }
+            else if(!strcmp(dt, "c")){
+                params.dom_type = connected;
+            }
         }
     }
     
@@ -367,7 +386,7 @@ void make_graph(Graph& graph, Params params){
 
     }
 
-    if(!strcmp(params.dom_type, "s")){
+    if(params.dom_type == secure){
         generate_three_apart(graph);
     }
     
@@ -432,7 +451,7 @@ void init_dom_updater(DomUpdater& du, Graph graph, Params params, CEUpdater upda
         du.sumP += du.Ptemp[i];
     }
 
-    if(!strcmp(params.dom_type, "s")){
+    if(params.dom_type == secure){
         du.secure_dommed = (int*)malloc(N*sizeof(int));
         memset(du.secure_dommed, 0, N*sizeof(int));
 
@@ -445,6 +464,11 @@ void init_dom_updater(DomUpdater& du, Graph graph, Params params, CEUpdater upda
             memset(du.secure_dom_neighbours[i], 0, size*sizeof(int));
         }
 
+    } else if (params.dom_type == connected){
+        du.components = (int*)malloc(N*sizeof(int));
+        memset(du.components, -1, N*sizeof(int));
+        du.num_components = 0;
+        du.subtracting = false;
     }
 }
 
@@ -567,11 +591,12 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
 
     choice_num = 0;
 
-    //  fprintf(stdout, "removing \n");
+    if(params.dom_type == connected){
+        du.subtracting = true;
+    }
 
     for (int i = 0; i < N; i++)
     {
-        // int ind = weight_rand(N, Ptemp, sumP);
         if(choice_num >= pre_calc){
             for (int i = 0; i < pre_calc; i++)
             {
@@ -598,7 +623,6 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
 
     }
 
-    //fprintf(stdout, "here \n");
 
     destruct_memory(du, graph, params);
     free(links);
@@ -745,11 +769,11 @@ void print_output(CEUpdater ce, Params params, Graph graph){
         }
 
         if(params.output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
         }
     } else {
         if(params.output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
+            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
         } else {
             fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
         }
@@ -790,7 +814,7 @@ void destruct_memory(Graph graph, CEUpdater ce, Params params){
     free(ce.results);
     free(ce.best_domset_overall);
 
-    if(!strcmp(params.dom_type, "s")){
+    if(params.dom_type == secure){
         for (int i = 0; i < graph.N; i++)
         {
             free(graph.three_aparts[i]);
@@ -814,13 +838,15 @@ void destruct_memory(DomUpdater du, Graph graph, Params params){
     free(du.dommed);
     free(du.Ptemp);
 
-    if(!strcmp(params.dom_type, "s")){
+    if(params.dom_type == secure){
         for (int i = 0; i < graph.N; i++)
         {
             free(du.secure_dom_neighbours[i]);
         }
         free(du.secure_dom_neighbours);
         free(du.secure_dommed);
+    } else if(params.dom_type == connected){
+        free(du.components);
     }
 }
 
@@ -832,16 +858,16 @@ void destruct_memory(DomUpdater du, Graph graph, Params params){
  * @param params contains the dominating type paramater
  */
 void set_domfunc(DomUpdater& updater, Params params){
-    if(!strcmp(params.dom_type, "t")){
+    if(params.dom_type == total){
         updater.dom_func = &total_dominates;
     }
-    else if(!strcmp(params.dom_type, "2")){
+    else if(params.dom_type == two){
         updater.dom_func = &two_dominates;
     }
-    else if(!strcmp(params.dom_type, "c")){
+    else if(params.dom_type == connected){
         updater.dom_func = &connected_dominates;
     }
-    else if(!strcmp(params.dom_type, "s")){
+    else if(params.dom_type == secure){
         updater.dom_func = &secure_dominates;
     }
     else {
@@ -1138,10 +1164,93 @@ bool secure_dominates(DomUpdater& du, int added, int* domset, Graph graph){
  * @param graph the graph to check domination over
  */
 bool connected_dominates(DomUpdater& du, int added, int* domset, Graph graph){
-    
-    return dominates(du, added, domset, graph) && connected(domset, graph);
+    bool doms = dominates(du, added, domset, graph);
+    bool conn;
+
+    if(!du.subtracting){
+        conn = is_connected(du, added, domset, graph);
+    } else if(domset[added]){
+        conn = 1;
+    } else {
+        conn = is_connected(domset, graph);
+    }
+
+    // if(!du.subtracting && conn != is_connected(domset, graph)){
+    //     fprintf(stdout, "not the same boss\n");
+
+    //     for (int i = 0; i < graph.N; i++)
+    //     {
+    //         fprintf(stdout, "%d ", du.components[i]+1);
+    //     }
+    //     fprintf(stdout, "\n");
+        
+
+    //     exit(0);
+    // }
+
+    return doms && conn;
 }
 
+bool is_connected(DomUpdater& du, int added, int* domset, Graph graph){
+
+    int degree = graph.degrees[added];
+
+    int num_adjacent = 0;
+    int* others = (int*)malloc(degree*sizeof(int));
+
+    for (int i = 0; i < degree; i++)
+    {
+        int v2 = graph.neighbours[added][i];
+        int component_v2 = du.components[v2];
+
+        if(!domset[v2]) continue;
+
+        bool in_already = false;
+        for (int j = 0; j < num_adjacent; j++)
+        {
+            if(others[j] == component_v2){
+                in_already = true;
+                break;
+            }
+        }
+
+        if(in_already) continue;
+
+        others[num_adjacent] = component_v2;
+        num_adjacent++;
+        
+    }
+    
+    if(num_adjacent == 0){
+        du.components[added] = added;
+        du.num_components++;
+    } else if(num_adjacent == 1){
+        du.components[added] = others[0];
+    } else {
+        for (int i = 0; i < graph.N; i++)
+        {
+            int component_i = du.components[i];
+            for (int j = 1; j < num_adjacent; j++)
+            {
+                if(component_i == others[j]){
+                    du.components[i] = others[0];
+                    break;
+                }
+            }    
+        }
+
+        du.components[added] = others[0];
+        du.num_components += 1 - num_adjacent;
+
+    }
+
+
+    free(others);
+
+    //fprintf(stdout, "num_components: %d, num_adjacent: %d\n", du.num_components, num_adjacent);
+
+    return du.num_components == 1;
+}
 
 /**
  * @brief Determine if the given subset is connected in the given graph;
@@ -1149,7 +1258,7 @@ bool connected_dominates(DomUpdater& du, int added, int* domset, Graph graph){
  * @param subset The subset of vertices whose induced subgraph will be checked
  * @param graph The graph to check connection under
  */
-bool connected(int* subset, Graph graph){
+bool is_connected(int* subset, Graph graph){
     
     //just do a breadth first search only considering vertices from the subset
     int reached[graph.N] = {0};
@@ -1171,7 +1280,7 @@ bool connected(int* subset, Graph graph){
     int qsize = 1;
     int qind = 0;
     queue[0] = start;
-
+    int num_reached = 0;
     while(qind < qsize){
         int curr = queue[qind];
         for (int i = 0; i < graph.degrees[curr]; i++)
@@ -1180,6 +1289,7 @@ bool connected(int* subset, Graph graph){
             if(subset[nb] && !reached[nb]){
                 reached[nb] = 1;
                 queue[qsize++] = nb;
+                num_reached++;
                 
             }
         }
@@ -1188,6 +1298,8 @@ bool connected(int* subset, Graph graph){
         qind++;
     }
 
+    //fprintf(stdout, "num_reached from start at %d: %d\n", start, num_reached);
+    
     for (int i = 0; i < graph.N; i++)
     {
         if(subset[i] && !reached[i]){

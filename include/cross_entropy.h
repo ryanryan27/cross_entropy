@@ -1,5 +1,13 @@
 typedef bool (*domfunc)(struct DomUpdater&, int, int*, struct Graph);
 
+enum variant{
+    domination,
+    total,
+    two,
+    secure,
+    connected
+};
+
 struct Params {
     char* filename;
     int n = 50;
@@ -7,7 +15,8 @@ struct Params {
     int r = 5;
     double rho = 0.1;
     double alpha = 0.5;
-    char* dom_type = (char*)"d";
+    char* dom_type_str = (char*)"d";
+    variant dom_type = domination;
 
     int label_offset = 1;
     int seed = 0;
@@ -55,6 +64,10 @@ struct DomUpdater {
     int* secure_dommed;
     int** secure_dom_neighbours;
 
+    bool subtracting;
+    int num_components;
+    int* components;
+
     double* Ptemp;
     double sumP;
 
@@ -86,7 +99,8 @@ bool total_dominates(DomUpdater&, int, int*, Graph);
 bool two_dominates(DomUpdater&, int, int*, Graph);
 bool secure_dominates(DomUpdater&, int, int*, Graph);
 bool connected_dominates(DomUpdater&, int, int*, Graph);
-bool connected(int*, Graph);
+bool is_connected(int*, Graph);
+bool is_connected(DomUpdater&, int, int*, Graph);
 
 int weight_rand_acc(int, double*, double, int*&);
 
