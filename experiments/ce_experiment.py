@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from math import ceil
 from numpy import arange
 
@@ -82,7 +83,12 @@ class Experiment:
                 '-t', str(self.settings['t'][0])]
 
 if __name__ == "__main__":
-    experiment = Experiment("test_experiment")
+    
+    if len(sys.argv) < 2:
+        print("Please specify an experiment directory")
+        exit(0)
+
+    experiment = Experiment(sys.argv[1])
     experiment.begin()
 
 
