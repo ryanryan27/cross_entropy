@@ -674,10 +674,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater& updater, Params params){
         }
         return 0;
     }
-        
     
-
-
     return 1;
 
 }
