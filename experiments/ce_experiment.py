@@ -1,5 +1,7 @@
 import os
 import subprocess
+from math import ceil
+from numpy import arange
 
 class Experiment:
 
@@ -20,14 +22,14 @@ class Experiment:
             if vals[0] == 'M':
                 self.m_key = 'M'
 
-            if vals[0] in ['n', 'r', 'm', 's', 'i', 't']:
+            if vals[0] in ['n', 'r', 'm', 's', 'i']:
                 if(len(vals) > 2):
                     self.settings[vals[0]] = range(int(vals[1]), int(vals[3]) + int(vals[2]), int(vals[2]))
                 else:
                     self.settings[vals[0]] = [int(vals[1])]
-            elif vals[0] in ['a', 'M']:
+            elif vals[0] in ['a', 'M', 't']:
                 if(len(vals) > 2):
-                    self.settings[vals[0]] = range(float(vals[1]), float(vals[3]) + float(vals[2]), float(vals[2]))
+                    self.settings[vals[0]] = arange(float(vals[1]), float(vals[3]) + float(vals[2]), float(vals[2]))
                 else:
                     self.settings[vals[0]] = [float(vals[1])]
             elif vals[0] == 'R':
@@ -52,7 +54,7 @@ class Experiment:
                 for m in self.settings[self.m_key]:
                     self.m = m
                     if self.m_key == 'M':
-                        self.m = m*n
+                        self.m = ceil(m*n)
                     for R in self.settings['R']:
                         self.R = R
                         for a in self.settings['a']:
