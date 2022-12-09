@@ -56,11 +56,13 @@ class Experiment:
                     self.m = m
                     if self.m_key == 'M':
                         self.m = ceil(m*n)
-                    for R in self.settings['R']:
-                        self.R = R
-                        for a in self.settings['a']:
-                            self.a = a;
-                            self.run()
+                    for r in self.settings['r']:
+                        self.r = r
+                        for R in self.settings['R']:
+                            self.R = R
+                            for a in self.settings['a']:
+                                self.a = a;
+                                self.run()
 
         
 
@@ -75,6 +77,7 @@ class Experiment:
                 '-o', '-2', "./"+self.path+"/results.csv",
                 '-n', str(self.n),
                 '-m', str(self.m),
+                '-r', str(self.r),
                 '-R', str(self.R),
                 '-a', str(self.a),
                 '-d', str(self.d),
