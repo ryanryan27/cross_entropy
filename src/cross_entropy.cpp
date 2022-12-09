@@ -191,10 +191,10 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
         }
 
         //if we have exceeded the specified time limit, exit
-        if(params.timeout > 0 && ((double)(clock()-ce.start)/CLOCKS_PER_SEC) > params.timeout){
-            ce.timed_out = true;
-            break;
-        }
+        // if(params.timeout > 0 && ((double)(clock()-ce.start)/CLOCKS_PER_SEC) > params.timeout){
+        //     ce.timed_out = true;
+        //     break;
+        // }
 
         //calculate the delta value for cross_entropy
         ce.delta = -1*ce.L[0]/log(params.rho);
@@ -214,6 +214,11 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
         }
 
         ce.loops_without_change++;
+
+        if(params.output_types >0){
+            double current_time = (double)(clock()-ce.start)/CLOCKS_PER_SEC;
+            fprintf(stdout, "Current time: (%.3f), Approximate expected time: (%.3f - %.3f)\n", current_time, ce.mean_expected_time, ce.mean_expected_time*2);
+        }
     
     }
 
@@ -417,6 +422,8 @@ void make_graph(Graph& graph, Params params){
 void init_updater(CEUpdater& updater, Graph graph, Params params){
     updater.domset_possible = 1;
     updater.timed_out = false;
+    updater.mean_expected_time = -1;
+    updater.samples = 0;
     updater.best_seed = params.seed;
     updater.best_domset_this_iteration = (int*) malloc(graph.N*sizeof(int));
     memset(updater.best_domset_this_iteration, 1, graph.N*sizeof(int));
@@ -495,7 +502,7 @@ void init_dom_updater(DomUpdater& du, Graph graph, Params params, CEUpdater upda
  * @param updater contains probability distribution for vertex selection
  * @param params contains cross entropy parameters
  */
-int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
+int make_domset(int* &domset, Graph graph, CEUpdater& updater, Params params){
     DomUpdater du;
 
     set_domfunc(du, params);
@@ -504,6 +511,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
     memset(domset, 0, N*sizeof(int));
 
     init_dom_updater(du, graph, params, updater);
+    time_t start_time = clock();
 
     //set up linked list for slightly faster weightrand calculations
     int* links = (int*) malloc((2*N+1)*sizeof(int));
@@ -538,6 +546,9 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
         if(domcount == N){
             destruct_memory(du, graph, params);
             free(links);
+            if(params.output_types > 0){
+                fprintf(stdout, "Aborting, unable to dominate graph.\n");
+            }
             return 0;    
         }
 
@@ -641,6 +652,30 @@ int make_domset(int* &domset, Graph graph, CEUpdater updater, Params params){
 
     destruct_memory(du, graph, params);
     free(links);
+
+
+   
+    double expected_time = (double)(clock() - start_time)/CLOCKS_PER_SEC;
+    expected_time = expected_time*params.n*(params.r);
+
+    if(updater.mean_expected_time == -1){
+        updater.mean_expected_time = expected_time/2;
+    } else {
+        updater.mean_expected_time = (updater.mean_expected_time*updater.samples+expected_time)/(updater.samples+1);
+    }
+    updater.samples++;
+    
+    //fprintf(stdout, "Expected time (%.5f) vs (%.5f)\n", updater.mean_expected_time, expected_time);
+    if(params.timeout > 0 && updater.mean_expected_time > params.timeout){
+        if(params.output_types > 0){
+            fprintf(stdout, "Aborting, expected time (%.5f) exceeds timeout (%.5f).\n", updater.mean_expected_time, params.timeout);
+        }
+        return 0;
+    }
+        
+    
+
+
     return 1;
 
 }
@@ -797,7 +832,7 @@ void print_output(CEUpdater ce, Params params, Graph graph){
         if(params.output_types < 0){
             fprintf(output, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
         } else {
-            fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
+            //fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
         }
     }
 

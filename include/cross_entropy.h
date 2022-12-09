@@ -56,6 +56,8 @@ struct CEUpdater {
     int loops_without_change;
     clock_t start;
     double total_time;
+    double mean_expected_time;
+    int samples;
 };
 
 struct DomUpdater {
@@ -85,7 +87,7 @@ int read_edges(Graph&, Params);
 void make_graph(Graph&, Params);
 void init_updater(CEUpdater&, Graph, Params);
 void init_dom_updater(DomUpdater&, Graph, Params, CEUpdater);
-int make_domset(int*&, Graph, CEUpdater, Params);
+int make_domset(int*&, Graph, CEUpdater&, Params);
 double calculate_score(int, int*);
 void sort_domsets(CEUpdater&, Graph, Params);
 int compare_scores(const void*, const void*);
