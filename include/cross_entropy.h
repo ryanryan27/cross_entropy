@@ -10,6 +10,7 @@ enum variant{
 
 struct Params {
     char* filename;
+    char* out_file;
     int n = 50;
     int m = 10;
     int r = 5;

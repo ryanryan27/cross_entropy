@@ -41,9 +41,8 @@ void print_instructions(){
     fprintf(stdout,
     "This program allows the following options (run the function with no additional\n"
     "arguments to get a help menu):\n\n"
-    "  -f <filename> <start_index> ---> specify the name of a file containing an\n"
-    "     (required)                    edge list with one edge per line, where\n"
-    "                                   the lowest index is <start_index>\n\n"
+    "  -f <filename>               ---> specify the name of a file containing an\n"
+    "     (required)                    edge list with one edge per line\n\n"
     "  -d <char>                   ---> type of dominating set to be generated:\n"
     "     (optional, default d)           d: domination\n"
     "                                     t: total domination\n"
@@ -230,7 +229,7 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
  */
 void handle_params(Params& params, int argc, char* argv[]){
     bool has_file = false;
-
+    bool has_out_file = false;
     for (int i = 0; i < argc; i++)
     {
         char* s = argv[i];
@@ -238,10 +237,6 @@ void handle_params(Params& params, int argc, char* argv[]){
         if(!strcmp(s, "-f")){
             params.filename = argv[++i];
             has_file = true;
-
-            if(i + 1 < argc && argv[i+1][0] != '-'){
-                params.label_offset = atoi(argv[++i]);
-            }
         } else if(!strcmp(s, "-n")){
             params.n = atoi(argv[++i]);
         } else if(!strcmp(s, "-m")){
@@ -258,6 +253,13 @@ void handle_params(Params& params, int argc, char* argv[]){
             params.timeout = atof(argv[++i]);
         } else if(!strcmp(s, "-o")){
             params.output_types = atof(argv[++i]);
+
+            if(params.output_types == -2 && i+1 < argc && argv[i+1][0] != '-'){
+
+                params.out_file = argv[++i];
+                has_out_file = true;
+            }
+
         } else if(!strcmp(s, "-i")){
             params.iterations = atoi(argv[++i]);
         } else if(!strcmp(s, "-d")){
@@ -288,6 +290,11 @@ void handle_params(Params& params, int argc, char* argv[]){
         fprintf(stdout, "Please provide a edge list file with -f \"filename\"");
         exit(1);
     }
+
+    if(params.output_types == -2 && !has_out_file){
+        fprintf(stdout, "Please specify which file to write to with -o -2 \"filename\"");
+        exit(1);
+    }
 }
 
 /**
@@ -308,6 +315,7 @@ int read_edges(Graph& graph, Params params){
     int** edge_buffer = (int**) malloc(10000*sizeof(int*));
 
     int count = 0;
+    int min_value = INT_MAX;
 
     while(true){
         int a = 0;
@@ -317,8 +325,11 @@ int read_edges(Graph& graph, Params params){
 
         
         edge_buffer[count] = (int*) malloc(2*sizeof(int));
-        edge_buffer[count][0] = a - params.label_offset;
-        edge_buffer[count++][1] = b - params.label_offset;
+        edge_buffer[count][0] = a;
+        edge_buffer[count++][1] = b;
+
+        if(a < min_value) min_value = a;
+        if(b < min_value) min_value = b;
         
     }
 
@@ -326,7 +337,11 @@ int read_edges(Graph& graph, Params params){
     for (int i = 0; i < count; i++)
     {
         graph.edges[i] = edge_buffer[i];
+        graph.edges[i][0] -= min_value;
+        graph.edges[i][1] -= min_value;
     }
+
+    params.label_offset = min_value;
     
     graph.M = count;
 
@@ -738,6 +753,13 @@ double calculate_Pstar(int i, CEUpdater updater, Params params){
  * @param params 
  */
 void print_output(CEUpdater ce, Params params, Graph graph){
+
+    FILE* output = stdout;
+
+    if(params.output_types == -2){
+        output = fopen(params.out_file, "a");
+    }
+
     if(ce.domset_possible){
         if(params.output_types > 0){
             fprintf(stdout, "Best is %d guards found at seed %d\n", ce.best, ce.best_seed);
@@ -768,15 +790,19 @@ void print_output(CEUpdater ce, Params params, Graph graph){
             fprintf(stdout, "\n");
         }
 
-        if(params.output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
+        if(params.output_types < 0){
+            fprintf(output, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
         }
     } else {
-        if(params.output_types == -1){
-            fprintf(stdout, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
+        if(params.output_types < 0){
+            fprintf(output, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
         } else {
             fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
         }
+    }
+
+    if(params.output_types == -2){
+        fclose(output);
     }
 }
 
