@@ -169,6 +169,8 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
         {
             ce.domset_possible = make_domset(ce.domsets[j], graph, ce, params);
             
+            
+        
             if (!ce.domset_possible) break;
 
             ce.L[j] = calculate_score(graph.N, ce.domsets[j]);
@@ -217,7 +219,7 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
 
         if(params.output_types >0){
             double current_time = (double)(clock()-ce.start)/CLOCKS_PER_SEC;
-            fprintf(stdout, "Current time: (%.3f), Approximate expected time: (%.3f - %.3f)\n", current_time, ce.mean_expected_time, ce.mean_expected_time*2);
+            fprintf(stdout, "Current time: (%.3f), Approximate expected time: (%.3f - %.3f)\n", current_time, ce.mean_expected_time, ce.mean_expected_time*sqrt(params.r));
         }
     
     }
@@ -714,27 +716,24 @@ void sort_domsets(CEUpdater& updater, Graph graph, Params params){
     qsort(to_sort, params.n, sizeof(*to_sort), compare_scores);
     
     double Ltemp[params.n];
-    int domset_temp[params.n][graph.N];
+
+    int** domset_temp = (int**)malloc(params.n*sizeof(int*));
 
     for (int i = 0; i < params.n; i++)
     {
         Ltemp[i] = updater.L[(int)to_sort[i][0]];
-        for (int j = 0; j < graph.N; j++)
-        {
-            domset_temp[i][j] = updater.domsets[(int)to_sort[i][0]][j];
-        }
+        domset_temp[i] = updater.domsets[(int)to_sort[i][0]];
         
     }
 
     for (int i = 0; i < params.n; i++)
     {
         updater.L[i] = Ltemp[i];
-        for (int j = 0; j < graph.N; j++)
-        {
-            updater.domsets[i][j] = domset_temp[i][j];
-        }
+        updater.domsets[i] = domset_temp[i];
         
     }
+
+    free(domset_temp);
     
 }
 
