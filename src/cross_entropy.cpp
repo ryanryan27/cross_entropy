@@ -788,7 +788,9 @@ void print_output(CEUpdater ce, Params params, Graph graph){
     FILE* output = stdout;
 
     if(params.output_types == -2){
-        output = fopen(params.out_file, "a");
+        do {
+            output = fopen(params.out_file, "a");
+        } while(output == nullptr);
     }
 
     if(ce.domset_possible){
