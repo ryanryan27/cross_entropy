@@ -9,6 +9,11 @@ class Experiment:
     def __init__(self, path):
         self.path = path
 
+        out_file = open("./" + path + "/results.csv", 'w')
+        out_file.write(self.header_string())
+        out_file.close()
+
+
         experiment_file = open("./"+path+"/experiment.txt", 'r')
 
         lines = experiment_file.readlines()
@@ -84,6 +89,9 @@ class Experiment:
                 '-s', str(self.settings['s'][0]),
                 '-i', str(self.settings['i'][0]),
                 '-t', str(self.settings['t'][0])]
+
+    def header_string(self):
+        return "graph, dom_type, vertices, edges, sample_sets, elite_sets, repeats_without_improvement, rho, alpha, best, time\n"
 
 if __name__ == "__main__":
     

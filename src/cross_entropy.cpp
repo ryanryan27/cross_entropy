@@ -674,7 +674,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater& updater, Params params){
         }
         return 0;
     }
-    
+
     return 1;
 
 }
@@ -822,11 +822,11 @@ void print_output(CEUpdater ce, Params params, Graph graph){
         }
 
         if(params.output_types < 0){
-            fprintf(output, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
+            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
         }
     } else {
         if(params.output_types < 0){
-            fprintf(output, "%s, %s, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
+            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
         } else {
             //fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
         }
