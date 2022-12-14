@@ -142,6 +142,12 @@ void run_cross_entropy(Params params){
         }
     }
 
+    if (params.output_types > 0)
+    {
+        fprintf(stdout, "\n");
+    }
+    
+
     //check how long the cross entropy method took, for all different seeds
     ce.total_time  = (double)(clock() - ce.start)/CLOCKS_PER_SEC;
 
@@ -219,7 +225,8 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
 
         if(params.output_types >0){
             double current_time = (double)(clock()-ce.start)/CLOCKS_PER_SEC;
-            fprintf(stdout, "Current time: (%.3f), Approximate expected time: (%.3f - %.3f)\n", current_time, ce.mean_expected_time, ce.mean_expected_time*sqrt(params.r));
+            fprintf(stdout, "\rCurrent time: (%.3f), Approximate expected time: (%.3f - %.3f)", current_time, ce.mean_expected_time, ce.mean_expected_time*sqrt(params.r));
+            fflush(stdout);
         }
     
     }
@@ -658,7 +665,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater& updater, Params params){
 
    
     double expected_time = (double)(clock() - start_time)/CLOCKS_PER_SEC;
-    expected_time = expected_time*params.n*(params.r);
+    expected_time = expected_time*params.n*(params.r)*params.iterations;
 
     if(updater.mean_expected_time == -1){
         updater.mean_expected_time = expected_time/2;
