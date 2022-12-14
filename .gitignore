@@ -1,0 +1,8 @@
+*
+!.gitignore
+!*/
+!src/**
+!include/**
+!experiments/**
+!graphs/**
+!README.md

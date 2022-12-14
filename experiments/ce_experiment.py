@@ -3,6 +3,9 @@ import subprocess
 import sys
 from math import ceil
 from numpy import arange
+from threading import Thread
+
+from multiprocessing.pool import ThreadPool
 
 class Experiment:
 
@@ -52,6 +55,8 @@ class Experiment:
 
     def begin(self):
         print("begin")
+
+        self.thread_pool = ThreadPool()
         
         for d in self.settings['d']:
             self.d = d
@@ -66,19 +71,28 @@ class Experiment:
                         for R in self.settings['R']:
                             self.R = R
                             for a in self.settings['a']:
-                                self.a = a;
-                                self.run()
+                                self.a = a
+                                for file in os.listdir("./"+self.path+"/graphs/"):
+                                    arg_string = self.cl_string(file)
+                                    print(arg_string)
+                                    # thread = Thread(target=self.run, args=(arg_string,))
+                                    # thread.start()
+                                    # thread.join()
+                                    self.thread_pool.apply_async(self.run, [arg_string])
+                                    #self.run(arg_string)
+        
+        self.thread_pool.close()
+        self.thread_pool.join()
+                                    
 
         
 
-    def run(self):
-        for file in os.listdir("./"+self.path+"/graphs/"):
-            print(self.cl_string(file))
-            subprocess.run(self.cl_string(file))
+    def run(self, arg_string):
+        subprocess.run(arg_string)
 
-    def cl_string(self, file):
+    def cl_string(self, filename):
         return ["../cross_entropy.exe", 
-                '-f', "./"+self.path+'/graphs/'+file,
+                '-f', "./"+self.path+'/graphs/'+filename,
                 '-o', '-2', "./"+self.path+"/results.csv",
                 '-n', str(self.n),
                 '-m', str(self.m),
