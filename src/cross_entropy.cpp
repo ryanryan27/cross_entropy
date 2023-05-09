@@ -100,7 +100,7 @@ void run_cross_entropy(Params params){
     for (int i = 0; i < params.iterations; i++)
     {
         //if no domset is possible, don't bother trying again
-        if (!ce.domset_possible) break;
+        if (ce.domset_possible <= 0) break;
         
         //set the random seed for this iteration
         srand(params.seed + i);
@@ -178,12 +178,12 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
             
             
         
-            if (!ce.domset_possible) break;
+            if (ce.domset_possible <= 0) break;
 
             ce.L[j] = calculate_score(graph.N, ce.domsets[j]);
         }
 
-        if (!ce.domset_possible) break;
+        if (ce.domset_possible <= 0) break;
 
         //sort the dominating sets based on their calculated scores
         sort_domsets(ce, graph, params);
@@ -702,7 +702,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater& updater, Params params){
         if(params.output_types > 0){
             fprintf(stdout, "Aborting, expected time (%.5f) exceeds timeout (%.5f).\n", updater.mean_expected_time, params.timeout);
         }
-        return 0;
+        return -1;
     }
 
     return 1;
@@ -823,7 +823,7 @@ void print_output(CEUpdater ce, Params params, Graph graph){
         } while(output == nullptr);
     }
 
-    if(ce.domset_possible){
+    if(ce.domset_possible > 0){
         if(params.output_types > 0){
             fprintf(stdout, "Best is %d guards found at seed %d\n", ce.best, ce.best_seed);
             fprintf(stdout, "Time taken: %0.3f \n", ce.total_time);
@@ -858,7 +858,7 @@ void print_output(CEUpdater ce, Params params, Graph graph){
         }
     } else {
         if(params.output_types < 0){
-            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, -1, 0.00);
+            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, ce.domset_possible, 0.00);
         } else {
             //fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
         }

@@ -93,7 +93,7 @@ class Experiment:
         subprocess.run(arg_string)
 
     def cl_string(self, filename):
-        return ["../ce_bigger.exe", 
+        return ["../cross_entropy.exe", 
                 '-f', filename,#"./"+self.path+'/graphs/'+filename,
                 '-o', '-2', "./"+self.path+"/results.csv",
                 '-n', str(self.n),
