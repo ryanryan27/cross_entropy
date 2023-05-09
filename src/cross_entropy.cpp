@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <climits>
 #include "cross_entropy.h"
 
 
@@ -318,6 +319,9 @@ void handle_params(Params& params, int argc, char* argv[]){
  * @param Params a set of parameters that contains the filename of the edge list file
  */
 int read_edges(Graph& graph, Params params){
+    int MAX_VERTICES = 2048;
+
+
     FILE* file = fopen(params.filename, "r");
 
     if(!file){
@@ -326,10 +330,18 @@ int read_edges(Graph& graph, Params params){
     }
 
 
-    int** edge_buffer = (int**) malloc(10000*sizeof(int*));
+    int** edge_buffer = (int**) malloc(MAX_VERTICES*MAX_VERTICES*sizeof(int*));
+
+    int** adjacency_check = (int**) malloc(MAX_VERTICES*sizeof(int*));
+
+    for(int i = 0; i < MAX_VERTICES; i++){
+        adjacency_check[i] = (int*) malloc(MAX_VERTICES*sizeof(int));
+        memset(adjacency_check[i], 0, sizeof(int)*MAX_VERTICES);
+    }
 
     int count = 0;
     int min_value = INT_MAX;
+
 
     while(true){
         int a = 0;
@@ -337,10 +349,17 @@ int read_edges(Graph& graph, Params params){
         int check = fscanf(file, " %d %d ", &a, &b);
         if(check == EOF) break;
 
+        if(a == b) continue;
+
+        if(adjacency_check[a][b] == 1) continue;
+
         
         edge_buffer[count] = (int*) malloc(2*sizeof(int));
         edge_buffer[count][0] = a;
         edge_buffer[count++][1] = b;
+
+        adjacency_check[a][b] = 1;
+        adjacency_check[b][a] = 1;
 
         if(a < min_value) min_value = a;
         if(b < min_value) min_value = b;
@@ -361,6 +380,10 @@ int read_edges(Graph& graph, Params params){
 
     free(edge_buffer);
 
+    for(int i = 0; i < MAX_VERTICES; i++){
+        free(adjacency_check[i]);
+    }
+    free(adjacency_check);
     
     return count;
 

@@ -3,6 +3,7 @@
 !*/
 !src/**
 !include/**
-!experiments/**
+!experiments/**/graphs/**
+!experiments/**/experiment.txt
 !graphs/**
 !README.md

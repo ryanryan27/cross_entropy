@@ -72,14 +72,16 @@ class Experiment:
                             self.R = R
                             for a in self.settings['a']:
                                 self.a = a
-                                for file in os.listdir("./"+self.path+"/graphs/"):
-                                    arg_string = self.cl_string(file)
-                                    print(arg_string)
-                                    # thread = Thread(target=self.run, args=(arg_string,))
-                                    # thread.start()
-                                    # thread.join()
-                                    self.thread_pool.apply_async(self.run, [arg_string])
-                                    #self.run(arg_string)
+                                #for file in os.listdir("./"+self.path+"/graphs/"):
+                                for currentpath, folders, files in os.walk("./"+self.path+"/graphs/"):
+                                    for file in files:
+        	                            arg_string = self.cl_string(os.path.join(currentpath, file))
+        	                            print(arg_string)
+        	                            # thread = Thread(target=self.run, args=(arg_string,))
+        	                            # thread.start()
+        	                            # thread.join()
+        	                            self.thread_pool.apply_async(self.run, [arg_string])
+        	                            #self.run(arg_string)
         
         self.thread_pool.close()
         self.thread_pool.join()
@@ -91,8 +93,8 @@ class Experiment:
         subprocess.run(arg_string)
 
     def cl_string(self, filename):
-        return ["../cross_entropy.exe", 
-                '-f', "./"+self.path+'/graphs/'+filename,
+        return ["../ce_bigger.exe", 
+                '-f', filename,#"./"+self.path+'/graphs/'+filename,
                 '-o', '-2', "./"+self.path+"/results.csv",
                 '-n', str(self.n),
                 '-m', str(self.m),
