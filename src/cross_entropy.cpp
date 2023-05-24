@@ -64,7 +64,7 @@ void print_instructions(){
     "  -s <int>                    ---> seed for the random function that is\n"
     "     (optional, default 0)         used to select vertices based on the\n"
     "                                   probability distribution\n\n"
-    "  -t <double>                 ---> upper limit in runtime in seconds\n"
+    "  -t <double>                 ---> upper limit in runtime for each iteration in seconds\n"
     "     (optional, default -1)        set to -1 for no limit\n\n"
     "  -o <int>                    ---> output format:\n"
     "     (optional, default 2)          -1: csv format\n"
@@ -96,11 +96,16 @@ void run_cross_entropy(Params params){
     init_updater(ce, graph, params);
     ce.start = clock();
 
+    
+
     //run through the cross entropy method for the specified number of seeds
     for (int i = 0; i < params.iterations; i++)
     {
         //if no domset is possible, don't bother trying again
         if (ce.domset_possible <= 0) break;
+        
+        //
+        ce.iteration_start = clock();
         
         //set the random seed for this iteration
         srand(params.seed + i);
@@ -129,6 +134,8 @@ void run_cross_entropy(Params params){
 
         //keep track of the overall best dominating set for all seeds
         if(ce.results[i] <ce.best){
+            ce.best_time = (double)(clock() - ce.iteration_start)/CLOCKS_PER_SEC;
+
             ce.best = ce.results[i];
             ce.best_seed = params.seed + i;
             for (int j = 0; j < graph.N; j++)
@@ -136,6 +143,16 @@ void run_cross_entropy(Params params){
                 ce.best_domset_overall[j] = ce.best_domset_this_iteration[j];
             }
         }
+
+        //update average best
+        double total = 0;
+        for (int j = 0; j <= i; j++)
+        {
+            total += ce.results[j];
+        }
+        ce.avg_best = total*1.0/(i+1);
+        ce.avg_time = ((double)(clock() - ce.start)/CLOCKS_PER_SEC)/(i+1);
+        
 
         //stop checking different seeds if we have timed out
         if(ce.timed_out){
@@ -688,7 +705,7 @@ int make_domset(int* &domset, Graph graph, CEUpdater& updater, Params params){
 
    
     double expected_time = (double)(clock() - start_time)/CLOCKS_PER_SEC;
-    expected_time = expected_time*params.n*(params.r)*params.iterations;
+    expected_time = expected_time*params.n*(params.r);
 
     if(updater.mean_expected_time == -1){
         updater.mean_expected_time = expected_time/2;
@@ -854,11 +871,11 @@ void print_output(CEUpdater ce, Params params, Graph graph){
         }
 
         if(params.output_types < 0){
-            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.total_time);
+            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f, %0.3f, %0.3f, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, ce.best, ce.best_time, ce.total_time, ce.avg_best, ce.avg_time);
         }
     } else {
         if(params.output_types < 0){
-            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, ce.domset_possible, 0.00);
+            fprintf(output, "%s, %s, %d, %d, %d, %d, %d, %f, %.1f, %d, %0.3f, %0.3f, %0.3f, %0.3f\n", params.filename, params.dom_type_str, graph.N, graph.M, params.n, params.m, params.r, params.rho, params.alpha, ce.domset_possible, 0,00, 0.00, -1.00, 0.00);
         } else {
             //fprintf(stdout, "Unable to dominate graph - probably disconnected\n");
         }

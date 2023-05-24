@@ -50,14 +50,19 @@ struct CEUpdater {
     int* results;
     int best;
     int* best_domset_overall;
+    double avg_best;
     int best_seed;
     int domset_possible;
     bool timed_out;
     int loops_without_change;
     clock_t start;
+    clock_t iteration_start;
     double total_time;
     double mean_expected_time;
+    double best_time;
+    double avg_time;
     int samples;
+    
 };
 
 struct DomUpdater {

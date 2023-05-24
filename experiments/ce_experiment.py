@@ -107,7 +107,7 @@ class Experiment:
                 '-t', str(self.settings['t'][0])]
 
     def header_string(self):
-        return "graph, dom_type, vertices, edges, sample_sets, elite_sets, repeats_without_improvement, rho, alpha, best, time\n"
+        return "graph, dom_type, vertices, edges, sample_sets, elite_sets, repeats_without_improvement, rho, alpha, best, best_time, total_time, avg_best, avg_time\n"
 
 if __name__ == "__main__":
     

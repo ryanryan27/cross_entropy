@@ -1,0 +1,1 @@
+g++ src/* -I include/ -o cross_entropy.exe
