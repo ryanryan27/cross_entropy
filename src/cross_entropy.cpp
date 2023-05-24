@@ -336,7 +336,7 @@ void handle_params(Params& params, int argc, char* argv[]){
  * @param Params a set of parameters that contains the filename of the edge list file
  */
 int read_edges(Graph& graph, Params params){
-    int MAX_VERTICES = 8192;
+    int MAX_VERTICES = 32768;
 
 
     FILE* file = fopen(params.filename, "r");
