@@ -3,7 +3,7 @@ m 10
 r 20
 R 2
 a 0.2
-d d t s c 2
+d d t 2 s c
 s 0
-i 1
-t 10
+i 10
+t 100
