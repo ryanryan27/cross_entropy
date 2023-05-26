@@ -101,8 +101,8 @@ void run_cross_entropy(Params params){
     //run through the cross entropy method for the specified number of seeds
     for (int i = 0; i < params.iterations; i++)
     {
-        //if no domset is possible, don't bother trying again
-        if (ce.domset_possible <= 0) break;
+        //only checks that each iteration times out
+        ce.timed_out = false;
         
         //
         ce.iteration_start = clock();
@@ -122,6 +122,9 @@ void run_cross_entropy(Params params){
 
         //start the cross entropy main loop
         cross_entropy_main_loop(ce, graph, params);
+        
+        //if no domset is possible, don't bother trying again
+        if (ce.domset_possible <= 0) break;
 
         //calculate the score of the best domset for this seed
         int sum = 0;
@@ -133,6 +136,8 @@ void run_cross_entropy(Params params){
         ce.results[i] = sum;
 
         //keep track of the overall best dominating set for all seeds
+        
+
         if(ce.results[i] <ce.best){
             ce.best_time = (double)(clock() - ce.iteration_start)/CLOCKS_PER_SEC;
 
@@ -142,7 +147,16 @@ void run_cross_entropy(Params params){
             {
                 ce.best_domset_overall[j] = ce.best_domset_this_iteration[j];
             }
+        } else if(ce.results[i] == ce.best){
+            double new_time = (double)(clock() - ce.iteration_start)/CLOCKS_PER_SEC;
+            if(new_time < ce.best_time){
+                ce.best_time = new_time;
+                ce.best_seed = params.seed + i;
+            }
         }
+
+
+        
 
         //update average best
         double total = 0;
@@ -155,9 +169,9 @@ void run_cross_entropy(Params params){
         
 
         //stop checking different seeds if we have timed out
-        if(ce.timed_out){
-            break;
-        }
+        // if(ce.timed_out){
+        //     break;
+        // }
     }
 
     if (params.output_types > 0)
@@ -195,12 +209,13 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
             
             
         
-            if (ce.domset_possible <= 0) break;
+            if (ce.domset_possible <= 0  || ce.timed_out) break;
 
             ce.L[j] = calculate_score(graph.N, ce.domsets[j]);
         }
 
-        if (ce.domset_possible <= 0) break;
+        if (ce.domset_possible <= 0 || ce.timed_out) break;
+        
 
         //sort the dominating sets based on their calculated scores
         sort_domsets(ce, graph, params);
@@ -242,7 +257,7 @@ void cross_entropy_main_loop(CEUpdater& ce, Graph graph, Params params){
         ce.loops_without_change++;
 
         if(params.output_types >0){
-            double current_time = (double)(clock()-ce.start)/CLOCKS_PER_SEC;
+            double current_time = (double)(clock()-ce.iteration_start)/CLOCKS_PER_SEC;
             fprintf(stdout, "\rCurrent time: (%.3f), Approximate expected time: (%.3f - %.3f)", current_time, ce.mean_expected_time, ce.mean_expected_time*sqrt(params.r));
             fflush(stdout);
         }
@@ -718,8 +733,18 @@ int make_domset(int* &domset, Graph graph, CEUpdater& updater, Params params){
     if(params.timeout > 0 && updater.mean_expected_time > params.timeout){
         if(params.output_types > 0){
             fprintf(stdout, "Aborting, expected time (%.5f) exceeds timeout (%.5f).\n", updater.mean_expected_time, params.timeout);
+            updater.timed_out = true;
         }
         return -1;
+    }
+
+    double curr_time = (double)((clock() - updater.iteration_start)/CLOCKS_PER_SEC);
+    if(params.timeout < 0 && curr_time > -1*params.timeout){
+        if(params.output_types > 0){
+            fprintf(stdout, "Aborting, exceeded timeout.\n");
+            updater.timed_out = true;
+        }
+        return 1;
     }
 
     return 1;
